@@ -43,13 +43,14 @@ const labelStyle = {
     marginBottom: '6px',
 }
 
-export default function ApplicationForm({ courses }: { courses: { id: string; name: string; fee: number }[] }) {
+export default function ApplicationForm({ courses }: { courses: { id: string; name: string; fee: number; course_groups?: { name: string; classes: string[] }[] | null }[] }) {
     const [formData, setFormData] = useState({
         student_name: '',
         email: '',
         phone: '',
         state: '',
         course_id: '',
+        class: '',
         mentor_code: ''
     })
 
@@ -110,6 +111,7 @@ export default function ApplicationForm({ courses }: { courses: { id: string; na
                 phone: debouncedForm.phone,
                 state: debouncedForm.state,
                 course_id: debouncedForm.course_id,
+                class: debouncedForm.class,
                 mentor_id: referrer?.type === 'mentor' ? referrer.id : undefined,
                 course_manager_id: referrer?.type === 'manager' ? referrer.id : undefined
             }
@@ -199,6 +201,13 @@ export default function ApplicationForm({ courses }: { courses: { id: string; na
         rzp.open();
         setSaveStatus('idle')
     }
+
+    const filteredCourses = formData.class
+        ? courses.filter(c => {
+            if (!c.course_groups || c.course_groups.length === 0) return true
+            return c.course_groups.some(group => group.classes.includes(formData.class))
+        })
+        : courses
 
     const selectedCourse = courses.find(c => c.id === formData.course_id)
 
@@ -309,18 +318,54 @@ export default function ApplicationForm({ courses }: { courses: { id: string; na
                                 style={{ ...inputStyle, ...(focusedField === 'course_id' ? inputFocusStyle : {}), cursor: 'pointer', appearance: 'none' as const, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238892b0'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px', paddingRight: '40px' }}
                             >
                                 <option value="">Select a course...</option>
-                                {courses.map(course => (
+                                {filteredCourses.map(course => (
                                     <option key={course.id} value={course.id}>
                                         {course.name} — ₹{course.fee}
                                     </option>
                                 ))}
                             </select>
+                            {formData.class && filteredCourses.length === 0 && (
+                                <p className="mt-2 text-xs text-amber-400">No courses available for your selected class/level yet.</p>
+                            )}
                             {selectedCourse && (
                                 <div className="mt-2 flex items-center gap-2" style={{ fontSize: '13px', color: '#64ffda' }}>
                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                     <span>Course fee: <strong>₹{selectedCourse.fee}</strong></span>
                                 </div>
                             )}
+                        </div>
+
+                        {/* Class/Level Selection */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label style={labelStyle}>Current Class/Level <span style={{ color: '#ff6b6b' }}>*</span></label>
+                                <select
+                                    name="class"
+                                    value={formData.class}
+                                    onChange={handleInputChange}
+                                    onFocus={() => setFocusedField('class')}
+                                    onBlur={() => setFocusedField(null)}
+                                    required
+                                    style={{ ...inputStyle, ...(focusedField === 'class' ? inputFocusStyle : {}), cursor: 'pointer', appearance: 'none' as const, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238892b0'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px', paddingRight: '40px' }}
+                                >
+                                    <option value="">Select your class...</option>
+                                    <option value="1st">1st Standard</option>
+                                    <option value="2nd">2nd Standard</option>
+                                    <option value="3rd">3rd Standard</option>
+                                    <option value="4th">4th Standard</option>
+                                    <option value="5th">5th Standard</option>
+                                    <option value="6th">6th Standard</option>
+                                    <option value="7th">7th Standard</option>
+                                    <option value="8th">8th Standard</option>
+                                    <option value="9th">9th Standard</option>
+                                    <option value="10th">10th Standard</option>
+                                    <option value="11th">11th Standard</option>
+                                    <option value="12th">12th Standard</option>
+                                    <option value="Graduate">Graduate (UG)</option>
+                                    <option value="Post Graduate">Post Graduate (PG)</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
                         </div>
 
                         {/* Mentor Code */}

@@ -25,6 +25,8 @@ export async function addCourse(formData: FormData) {
     const fee = parseFloat(formData.get('fee') as string)
     const promoter_commission_rate = parseFloat(formData.get('promoter_commission_rate') as string)
     const canvas_course_id = formData.get('canvas_course_id') as string
+    const course_groups_raw = formData.get('course_groups') as string
+    const course_groups = course_groups_raw ? JSON.parse(course_groups_raw) : []
 
     try {
         const { error } = await supabase.from('courses').insert([{
@@ -33,6 +35,7 @@ export async function addCourse(formData: FormData) {
             fee,
             promoter_commission_rate,
             canvas_course_id: canvas_course_id || null,
+            course_groups,
             is_active: true
         }])
 
@@ -81,6 +84,8 @@ export async function updateCourse(formData: FormData) {
     const assigned_manager_id = formData.get('assigned_manager_id') as string || null
     const assigned_mentor_id = formData.get('assigned_mentor_id') as string || null
     const canvas_course_id = formData.get('canvas_course_id') as string
+    const course_groups_raw = formData.get('course_groups') as string
+    const course_groups = course_groups_raw ? JSON.parse(course_groups_raw) : []
 
     try {
         const { error } = await supabase.from('courses')
@@ -92,6 +97,7 @@ export async function updateCourse(formData: FormData) {
                 assigned_manager_id: assigned_manager_id || null,
                 assigned_mentor_id: assigned_mentor_id || null,
                 canvas_course_id: canvas_course_id || null,
+                course_groups,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', courseId)

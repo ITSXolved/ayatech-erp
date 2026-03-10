@@ -17,9 +17,9 @@ export async function processApplicationAutomation(applicationId: string) {
     const { data: fullApp } = await supabaseAdmin
         .from('applications')
         .select(`
-            id, student_name, email, status, course_manager_id,
+            id, student_name, email, status, course_manager_id, class,
             courses ( 
-                id, name, canvas_course_id, 
+                id, name, canvas_course_id, course_groups,
                 manager:assigned_manager_id ( email ),
                 mentor_commission_rate,
                 manager_commission_rate,
@@ -58,6 +58,8 @@ export async function processApplicationAutomation(applicationId: string) {
             name: fullApp.student_name,
             email: fullApp.email,
             canvas_course_id: canvasCourseId || '',
+            student_class: (fullApp as { class?: string }).class,
+            course_groups: (course as { course_groups?: any[] })?.course_groups || []
         });
 
         // 4. Store LMS mapping with credentials
@@ -65,6 +67,8 @@ export async function processApplicationAutomation(applicationId: string) {
             application_id: fullApp.id,
             canvas_user_id: credentials.canvas_user_id,
             canvas_enrollment_id: credentials.canvas_enrollment_id,
+            canvas_group_id: credentials.canvas_group_id,
+            canvas_group_name: credentials.canvas_group_name,
             login_id: credentials.login_id,
             password: credentials.password,
             status: 'Provisioned'

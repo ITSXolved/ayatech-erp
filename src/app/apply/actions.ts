@@ -71,6 +71,7 @@ export async function saveApplicationDraft(
         phone: string
         state: string
         course_id: string
+        class?: string
         mentor_id?: string
         course_manager_id?: string
     }
@@ -100,6 +101,7 @@ export async function saveApplicationDraft(
             email: formData.email || '',
             phone: formData.phone || '',
             state: formData.state || '',
+            class: formData.class || '',
             status: 'Draft'
         }
         if (formData.course_id) payload.course_id = formData.course_id

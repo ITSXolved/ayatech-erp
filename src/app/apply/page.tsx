@@ -5,7 +5,7 @@ async function getActiveCourses() {
     const supabase = await createClient()
     const { data } = await supabase
         .from('courses')
-        .select('id, name, fee')
+        .select('id, name, fee, course_groups')
         .eq('is_active', true)
     return data || []
 }

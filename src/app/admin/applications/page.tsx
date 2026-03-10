@@ -37,6 +37,7 @@ interface ParsedApp {
     phone: string
     state: string | null
     status: string | null
+    class: string | null
     created_at: string
     course: CourseInfo | null
     mentor: MentorInfo | null
@@ -72,7 +73,7 @@ export default async function AdminApplicationsPage() {
     const { data: applications } = await supabase
         .from('applications')
         .select(`
-            id, student_name, email, phone, state, status, created_at,
+            id, student_name, email, phone, state, status, class, created_at,
             courses ( name, fee ),
             mentors ( mentor_code, users:user_id ( full_name ) ),
             payments ( amount, status, razorpay_payment_id ),
@@ -93,6 +94,7 @@ export default async function AdminApplicationsPage() {
             phone: app.phone,
             state: app.state,
             status: app.status,
+            class: app.class,
             created_at: app.created_at,
             course,
             mentor: rawMentor,
@@ -165,7 +167,10 @@ export default async function AdminApplicationsPage() {
                                             <TableCell>
                                                 <div className="font-medium">{app.student_name || 'Unnamed'}</div>
                                                 <div className="text-xs text-muted-foreground">{app.email}</div>
-                                                {app.phone && <div className="text-xs text-muted-foreground">{app.phone}</div>}
+                                                <div className="flex gap-2">
+                                                    {app.phone && <div className="text-xs text-muted-foreground">{app.phone}</div>}
+                                                    {app.class && <div className="text-xs font-semibold text-indigo-400">[{app.class}]</div>}
+                                                </div>
                                             </TableCell>
 
                                             {/* Course */}

@@ -184,7 +184,7 @@ export async function updateStaff(formData: FormData) {
             return { error: 'Failed to update profile.' }
         }
 
-        // 2. Handle role change
+        // 2. Handle role change and entity existence
         const { data: userData } = await supabase
             .from('users')
             .select('role_id, roles ( name )')
@@ -207,33 +207,30 @@ export async function updateStaff(formData: FormData) {
             }
 
             await supabase.from('users').update({ role_id: roleData.id }).eq('id', userId)
-
-            // Create role-specific entity if it doesn't exist
-            if (newRole === 'course_manager') {
-                const { data: existing } = await supabase.from('course_managers').select('id').eq('user_id', userId).single()
-                if (!existing) {
-                    const code = Math.floor(1000 + Math.random() * 9000).toString()
-                    await supabase.from('course_managers').insert([{ user_id: userId, mentor_code: code }])
-                }
-            } else if (newRole === 'promoter') {
-                const { data: existing } = await supabase.from('promoters').select('id').eq('user_id', userId).single()
-                if (!existing) await supabase.from('promoters').insert([{ user_id: userId }])
-            } else if (newRole === 'mentor') {
-                const { data: existing } = await supabase.from('mentors').select('id').eq('user_id', userId).single()
-                if (!existing) {
-                    const code = Math.floor(1000 + Math.random() * 9000).toString()
-                    await supabase.from('mentors').insert([{ user_id: userId, mentor_code: code }])
-                }
-            }
         }
 
-        // 3. Update referral code if applicable
-        if (referralCode && (newRole === 'mentor' || newRole === 'course_manager')) {
+        // 3. Ensure role-specific entity exists and update code if provided
+        if (newRole === 'course_manager' || newRole === 'mentor') {
             const table = newRole === 'mentor' ? 'mentors' : 'course_managers'
-            await supabase
-                .from(table)
-                .update({ mentor_code: referralCode })
-                .eq('user_id', userId)
+
+            // Try to find existing
+            const { data: existing } = await supabase.from(table).select('id').eq('user_id', userId).single()
+
+            if (existing) {
+                // Update code if provided
+                if (referralCode) {
+                    await supabase.from(table).update({ mentor_code: referralCode }).eq('user_id', userId)
+                }
+            } else {
+                // Create new with provided or generated code
+                const code = referralCode || Math.floor(1000 + Math.random() * 9000).toString()
+                await supabase.from(table).insert([{ user_id: userId, mentor_code: code }])
+            }
+        } else if (newRole === 'promoter') {
+            const { data: existing } = await supabase.from('promoters').select('id').eq('user_id', userId).single()
+            if (!existing) {
+                await supabase.from('promoters').insert([{ user_id: userId }])
+            }
         }
 
         // 4. Handle course assignments
