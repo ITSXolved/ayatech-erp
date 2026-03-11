@@ -1,6 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
+interface Course {
+    id: string;
+    name: string;
+    [key: string]: any;
+}
+
 /**
  * Validates if the current user is a Mentor.
  * Redirects to /dashboard if unauthorized.
@@ -41,13 +47,17 @@ export async function enforceMentorGuard() {
         redirect('/dashboard?error=MentorProfileMissing')
     }
 
-    // Fetch courses where this mentor is assigned (either in schedules or as assigned_mentor_id)
-    const { data: coursesData } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('assigned_mentor_id', user.id)
+    // Fetch courses where this mentor is assigned via junction table
+    const { data: assignments } = await supabase
+        .from('course_staff')
+        .select(`
+            course_id,
+            courses (*)
+        `)
+        .eq('user_id', user.id)
+        .eq('role', 'mentor')
 
-    const assignedCourses = coursesData || []
+    const assignedCourses = (assignments?.map(a => Array.isArray(a.courses) ? a.courses[0] : a.courses).filter(Boolean) || []) as Course[]
 
     return { user, mentor: mentorData, assignedCourses }
 }

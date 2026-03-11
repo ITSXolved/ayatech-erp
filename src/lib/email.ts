@@ -110,9 +110,9 @@ export async function sendStaffCredentialsEmail(
           <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 24px 0;">
             <p style="margin: 0 0 4px; font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Your Login Credentials</p>
             <table style="width: 100%; margin-top: 12px; font-size: 14px;">
-              <tr><td style="padding: 6px 0; color: #64748b; width: 100px;">Portal</td><td style="padding: 6px 0;"><a href="https://admission.ailt.in" style="color: #4f46e5; text-decoration: none; font-weight: 600;">admission.ailt.in</a></td></tr>
+              <tr><td style="padding: 6px 0; color: #64748b; width: 100px;">Portal</td><td style="padding: 6px 0;"><a href="https://erp.ayatech.org" style="color: #4f46e5; text-decoration: none; font-weight: 600;">erp.ayatech.org</a></td></tr>
               <tr><td style="padding: 6px 0; color: #64748b;">Email</td><td style="padding: 6px 0; font-family: monospace; color: #0f172a; font-weight: 600;">${to}</td></tr>
-              <tr><td style="padding: 6px 0; color: #64748b;">Password</td><td style="padding: 6px 0; font-family: monospace; color: #0f172a; font-weight: 600;">${password}</td></tr>
+              <tr><td style="padding: 6px 0; color: #64748b;">Password</td><td style="padding: 6px 0; font-family: monospace; color: #0f172a; font-weight: 600;">${password} (Mandatory)</td></tr>
               ${referralCode ? `
               <tr><td style="padding: 6px 0; color: #64748b;">Referral Code</td><td style="padding: 6px 0; font-family: monospace; color: #7c3aed; font-weight: 700; font-size: 18px;">${referralCode}</td></tr>
               ` : ''}
@@ -129,7 +129,60 @@ export async function sendStaffCredentialsEmail(
 
           <p style="color: #ef4444; font-size: 13px; font-weight: 500;">⚠️ Please logging in and change your password immediately for security.</p>
           
-          <a href="https://admission.ailt.in" style="display: inline-block; margin-top: 16px; padding: 12px 28px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Login to Portal</a>
+          <a href="https://erp.ayatech.org" style="display: inline-block; margin-top: 16px; padding: 12px 28px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Login to Portal</a>
+        </div>
+        <div style="padding: 16px 32px; background: #f8fafc; border-radius: 0 0 12px 12px; border: 1px solid #e2e8f0; border-top: none; text-align: center;">
+          <p style="color: #94a3b8; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} Ayatech. All rights reserved.</p>
+        </div>
+      </div>
+    `
+  };
+
+  await transporter.sendMail(mailOptions);
+}
+
+export async function sendStaffApprovalEmail(
+  to: string,
+  name: string,
+  role: string,
+  password?: string,
+  referralCode?: string
+) {
+  const mailOptions = {
+    from: `"Ayatech ERP" <${process.env.GMAIL_SMTP_USER}>`,
+    to,
+    subject: `Your Role Has Been Assigned - Ayatech ERP`,
+    html: `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #334155;">
+        <div style="background: linear-gradient(135deg, #0a192f, #112240); padding: 32px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="color: #e6f1ff; margin: 0; font-size: 24px;">Welcome Aboard!</h1>
+          <p style="color: #8892b0; margin-top: 8px; font-size: 14px;">Your access has been approved</p>
+        </div>
+        <div style="background: #ffffff; padding: 32px; border: 1px solid #e2e8f0; border-top: none;">
+          <p style="font-size: 16px;">Hi <strong>${name}</strong>,</p>
+          <p style="font-size: 14px;">Your registration has been approved and you have been assigned the role of <strong>${role.replace('_', ' ')}</strong> on the Ayatech ERP portal.</p>
+          
+          <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 24px 0;">
+            <p style="margin: 0 0 4px; font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Access Details</p>
+            <table style="width: 100%; margin-top: 12px; font-size: 14px;">
+              <tr><td style="padding: 6px 0; color: #64748b; width: 100px;">Portal</td><td style="padding: 6px 0;"><a href="https://erp.ayatech.org" style="color: #4f46e5; text-decoration: none; font-weight: 600;">erp.ayatech.org</a></td></tr>
+              <tr><td style="padding: 6px 0; color: #64748b;">Email</td><td style="padding: 6px 0; font-family: monospace; color: #0f172a; font-weight: 600;">${to}</td></tr>
+              <tr><td style="padding: 6px 0; color: #64748b;">Password</td><td style="padding: 6px 0; color: #0f172a; font-weight: 700;">${password || 'Use the password you registered with (Mandatory)'}</td></tr>
+              ${referralCode ? `
+              <tr><td style="padding: 6px 0; color: #64748b;">Referral Code</td><td style="padding: 6px 0; font-family: monospace; color: #7c3aed; font-weight: 700; font-size: 18px;">${referralCode}</td></tr>
+              ` : ''}
+            </table>
+          </div>
+
+          ${referralCode ? `
+          <div style="background: #fdf2f8; padding: 16px; border-radius: 8px; border: 1px solid #fbcfe8; margin-bottom: 24px;">
+            <p style="margin: 0; color: #9d174d; font-size: 13px;">
+              <strong>Note:</strong> Use your Referral Code when students enroll to track your commissions in the dashboard.
+            </p>
+          </div>
+          ` : ''}
+          
+          <a href="https://erp.ayatech.org" style="display: inline-block; margin-top: 16px; padding: 12px 28px; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Login to ERP</a>
         </div>
         <div style="padding: 16px 32px; background: #f8fafc; border-radius: 0 0 12px 12px; border: 1px solid #e2e8f0; border-top: none; text-align: center;">
           <p style="color: #94a3b8; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} Ayatech. All rights reserved.</p>

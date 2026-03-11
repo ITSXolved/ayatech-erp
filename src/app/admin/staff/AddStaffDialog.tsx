@@ -73,8 +73,18 @@ export default function AddStaffDialog({ staffList = [] }: { staffList?: StaffOp
                         <input name="email" type="email" required placeholder="e.g. john@example.com" className={inputClass} />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone Number</label>
-                        <input name="phone" type="tel" placeholder="e.g. +91 9876543210" className={inputClass} />
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone Number <span className="text-red-500">*</span></label>
+                        <input name="phone" type="tel" required placeholder="e.g. +91 9876543210" className={inputClass} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Date of Birth <span className="text-red-500">*</span></label>
+                            <input name="dateOfBirth" type="date" required className={inputClass} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Qualification <span className="text-red-500">*</span></label>
+                            <input name="qualification" type="text" required placeholder="e.g. B.Tech" className={inputClass} />
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Address</label>

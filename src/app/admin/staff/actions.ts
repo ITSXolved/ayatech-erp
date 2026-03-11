@@ -1,13 +1,12 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { enforceAdminGuard } from '@/lib/guards'
-import { sendStaffCredentialsEmail } from '@/lib/email'
+import { sendStaffCredentialsEmail, sendStaffApprovalEmail } from '@/lib/email'
 
 function generatePassword(length = 12): string {
-    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%'
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$'
     let password = ''
     for (let i = 0; i < length; i++) {
         password += chars.charAt(Math.floor(Math.random() * chars.length))
@@ -20,6 +19,18 @@ export async function approveUserRole(userId: string, roleName: 'course_manager'
     const supabase = await createClient()
 
     try {
+        // 0. Get user details for email
+        const { data: userData, error: userDetailsError } = await supabase
+            .from('users')
+            .select('email, full_name')
+            .eq('id', userId)
+            .single()
+
+        if (userDetailsError || !userData) {
+            console.error('User not found for approval email:', userDetailsError)
+            return
+        }
+
         // 1. Get role ID
         const { data: role, error: roleError } = await supabase.from('roles').select('id').eq('name', roleName).single()
         if (roleError || !role) {
@@ -35,19 +46,43 @@ export async function approveUserRole(userId: string, roleName: 'course_manager'
         }
 
         // 3. Create role-specific entity
+        let referralCode: string | undefined
         if (roleName === 'course_manager') {
             // Generate a 4-digit code for managers too
-            const code = Math.floor(1000 + Math.random() * 9000).toString()
-            const { error: cmError } = await supabase.from('course_managers').insert([{ user_id: userId, mentor_code: code }])
+            referralCode = Math.floor(1000 + Math.random() * 9000).toString()
+            const { error: cmError } = await supabase.from('course_managers').insert([{ user_id: userId, mentor_code: referralCode }])
             if (cmError) console.error('Failed to insert course_manager', cmError)
         } else if (roleName === 'promoter') {
             const { error: pError } = await supabase.from('promoters').insert([{ user_id: userId }])
             if (pError) console.error('Failed to insert promoter', pError)
         } else if (roleName === 'mentor') {
             // Generate a secure 4-digit code for the mentor
-            const code = Math.floor(1000 + Math.random() * 9000).toString()
-            const { error: mError } = await supabase.from('mentors').insert([{ user_id: userId, mentor_code: code }])
+            referralCode = Math.floor(1000 + Math.random() * 9000).toString()
+            const { error: mError } = await supabase.from('mentors').insert([{ user_id: userId, mentor_code: referralCode }])
             if (mError) console.error('Failed to insert mentor', mError)
+        }
+
+        // 4. Generate and Send Approval Email with System-Generated Password
+        // 4. Generate and Send Approval Email with System-Generated Password
+        try {
+            const { createAdminClient } = await import('@/lib/supabase/admin')
+            const supabaseAdmin = createAdminClient()
+            const systemPassword = generatePassword()
+
+            // Update user's password in Supabase Auth
+            const { error: pwdError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+                password: systemPassword
+            })
+
+            if (pwdError) {
+                console.error('Failed to set system password:', pwdError)
+                throw new Error(`Failed to set password: ${pwdError.message}`)
+            }
+
+            await sendStaffApprovalEmail(userData.email, userData.full_name || 'Staff Member', roleName, systemPassword, referralCode)
+        } catch (err: any) {
+            console.error('Failed in generating password or sending email:', err)
+            throw err
         }
     } catch (err) {
         console.error('Unexpected exception during role approval:', err)
@@ -64,19 +99,19 @@ export async function createStaffUser(formData: FormData) {
     const email = formData.get('email') as string
     const phone = formData.get('phone') as string
     const address = formData.get('address') as string
+    const dateOfBirth = formData.get('dateOfBirth') as string
+    const qualification = formData.get('qualification') as string
     const roleName = formData.get('role') as 'course_manager' | 'promoter' | 'mentor'
 
-    if (!fullName || !email || !roleName) {
-        return { error: 'All fields are required.' }
+    if (!fullName || !email || !phone || !roleName || !dateOfBirth || !qualification) {
+        return { error: 'All fields (Full Name, Email, Phone, Role, DOB, Qualification) are required.' }
     }
 
     const password = generatePassword()
 
     // Use the admin client (service role) to create auth user
-    const supabaseAdmin = createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const supabaseAdmin = createAdminClient()
 
     try {
         // 1. Create auth user
@@ -110,6 +145,8 @@ export async function createStaffUser(formData: FormData) {
             email,
             phone: phone || null,
             address: address || null,
+            date_of_birth: dateOfBirth || null,
+            qualification: qualification || null,
             role_id: role.id,
         }])
 
@@ -164,6 +201,10 @@ export async function updateStaff(formData: FormData) {
     const qualification = formData.get('qualification') as string
     const newRole = formData.get('role') as string
     const referralCode = formData.get('referralCode') as string
+
+    if (!fullName || !email || !phone || !dateOfBirth || !qualification) {
+        return { error: 'Full Name, Email, Phone, DOB, and Qualification are required.' }
+    }
 
     try {
         // 1. Update user profile
@@ -247,22 +288,21 @@ export async function updateStaff(formData: FormData) {
         const roleName = (roleNode as { name: string } | null)?.name
 
         if (roleName === 'course_manager' || roleName === 'mentor') {
-            const assignmentColumn = roleName === 'course_manager' ? 'assigned_manager_id' : 'assigned_mentor_id'
-
-            // Un-assign all courses currently assigned to this user in their specific role
+            // 1. Delete existing associations for this user in this role
             await supabase
-                .from('courses')
-                .update({ [assignmentColumn]: null })
-                .eq(assignmentColumn, userId)
+                .from('course_staff')
+                .delete()
+                .eq('user_id', userId)
+                .eq('role', roleName)
 
-            // Assign selected courses
+            // 2. Assign selected courses in junction table
             if (assignedCourseIds.length > 0) {
-                for (const courseId of assignedCourseIds) {
-                    await supabase
-                        .from('courses')
-                        .update({ [assignmentColumn]: userId })
-                        .eq('id', courseId)
-                }
+                const multiInserts = assignedCourseIds.map(courseId => ({
+                    course_id: courseId,
+                    user_id: userId,
+                    role: roleName
+                }))
+                await supabase.from('course_staff').insert(multiInserts)
             }
         }
     } catch (err) {
@@ -278,15 +318,12 @@ export async function updateStaff(formData: FormData) {
 export async function deleteStaff(userId: string) {
     await enforceAdminGuard()
 
-    const supabaseAdmin = createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const supabaseAdmin = createAdminClient()
 
     try {
-        // 1. Un-assign from courses (we still want to remove them from active courses)
-        await supabaseAdmin.from('courses').update({ assigned_manager_id: null }).eq('assigned_manager_id', userId)
-        await supabaseAdmin.from('courses').update({ assigned_mentor_id: null }).eq('assigned_mentor_id', userId)
+        // 1. Un-assign from courses in junction table
+        await supabaseAdmin.from('course_staff').delete().eq('user_id', userId)
 
         // 2. We DO NOT delete role-specific records/FKs so history is preserved
         // Instead, we mark the public.users record as deleted

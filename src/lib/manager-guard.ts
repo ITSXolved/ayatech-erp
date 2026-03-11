@@ -1,6 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
+interface Course {
+    id: string;
+    name: string;
+    [key: string]: any;
+}
+
 /**
  * Validates if the current user is a Course Manager.
  * Redirects to /dashboard if unauthorized.
@@ -41,13 +47,17 @@ export async function enforceManagerGuard() {
         redirect('/dashboard?error=ManagerProfileMissing')
     }
 
-    // Fetch courses assigned to this user (courses.assigned_manager_id → users.id)
-    const { data: coursesData } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('assigned_manager_id', user.id)
+    // Fetch courses assigned to this user via junction table
+    const { data: assignments } = await supabase
+        .from('course_staff')
+        .select(`
+            course_id,
+            courses (*)
+        `)
+        .eq('user_id', user.id)
+        .eq('role', 'course_manager')
 
-    const assignedCourses = coursesData || []
+    const assignedCourses = (assignments?.map(a => Array.isArray(a.courses) ? a.courses[0] : a.courses).filter(Boolean) || []) as Course[]
 
     return { user, managerId: managerData.id, assignedCourses }
 }

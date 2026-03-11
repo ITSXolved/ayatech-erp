@@ -21,7 +21,7 @@ export default async function AdminAnalyticsPage() {
     const { data: apps } = await supabase
         .from('applications')
         .select(`
-      status, created_at,
+      status, created_at, mentor_id,
       courses ( name )
     `)
 
@@ -33,13 +33,14 @@ export default async function AdminAnalyticsPage() {
         courseName: Array.isArray(a.courses) ? a.courses[0]?.name : a.courses?.name
     })) || []
 
-    // Process for Pie Chart: Self-paced vs Mentor
-    // Assuming if a lead is assigned a mentor via lead_assignments it's "Mentor Led" otherwise "Self-paced"
-    // Let's do a more robust approach:
-    const { count: mentorAssignedCount } = await supabase.from('lead_assignments').select('id', { count: 'exact' }).not('mentor_id', 'is', null)
+    // Process for Pie Chart: Self-paced vs Mentor (Converted Leads only)
+    const convertedApps = apps?.filter(a => ['Joined', 'Completed', 'Enrolled', 'Paid'].includes(a.status || '')) || []
+    const mentorLedCount = convertedApps.filter(a => a.mentor_id !== null).length
+    const selfPacedCount = convertedApps.length - mentorLedCount
+
     const pieData = [
-        { name: 'Mentor Led', value: mentorAssignedCount || 0 },
-        { name: 'Self-paced', value: Math.max(0, (apps?.length || 0) - (mentorAssignedCount || 0)) }
+        { name: 'Mentor Led', value: mentorLedCount },
+        { name: 'Self-paced', value: selfPacedCount }
     ]
 
     // 3. Fetch Revenue Table Data

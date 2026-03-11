@@ -37,7 +37,7 @@ export default async function ManagerApplicationsPage() {
     const { assignedCourses } = await enforceManagerGuard()
     const adminDb = createAdminClient()
 
-    const courseIds = assignedCourses.map((c: { id: string }) => c.id)
+    const courseIds = assignedCourses.map(c => c.id)
 
     if (courseIds.length === 0) {
         return (

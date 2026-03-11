@@ -99,7 +99,7 @@ export default async function RegisterPage({
                                 </div>
                                 {/* Steps indicator */}
                                 <div className="flex gap-2 mt-5">
-                                    {['Personal Info', 'Contact Details', 'Account Setup'].map((step, i) => (
+                                    {['Personal Info', 'Contact Details', 'Confirmation'].map((step, i) => (
                                         <div key={step} className="flex-1 flex items-center gap-2">
                                             <div className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold" style={{
                                                 background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
@@ -139,12 +139,12 @@ export default async function RegisterPage({
                                             </div>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div>
-                                                    <label style={labelStyle}>Date of Birth</label>
-                                                    <input name="dateOfBirth" type="date" style={{ ...inputStyle, colorScheme: 'dark' }} />
+                                                    <label style={labelStyle}>Date of Birth <span style={{ color: '#ff6b6b' }}>*</span></label>
+                                                    <input name="dateOfBirth" type="date" required style={{ ...inputStyle, colorScheme: 'dark' }} />
                                                 </div>
                                                 <div>
-                                                    <label style={labelStyle}>Qualification</label>
-                                                    <input name="qualification" type="text" placeholder="e.g. B.Tech, MBA" style={inputStyle} />
+                                                    <label style={labelStyle}>Qualification <span style={{ color: '#ff6b6b' }}>*</span></label>
+                                                    <input name="qualification" type="text" required placeholder="e.g. B.Tech, MBA" style={inputStyle} />
                                                 </div>
                                             </div>
                                         </div>
@@ -165,8 +165,8 @@ export default async function RegisterPage({
                                             </div>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div>
-                                                    <label style={labelStyle}>Phone Number</label>
-                                                    <input name="phone" type="tel" placeholder="+91 98765 43210" style={inputStyle} />
+                                                    <label style={labelStyle}>Phone Number <span style={{ color: '#ff6b6b' }}>*</span></label>
+                                                    <input name="phone" type="tel" required placeholder="+91 98765 43210" style={inputStyle} />
                                                 </div>
                                                 <div>
                                                     <label style={labelStyle}>Address</label>
@@ -176,22 +176,6 @@ export default async function RegisterPage({
                                         </div>
                                     </div>
 
-                                    {/* Divider */}
-                                    <div style={{ height: '1px', backgroundColor: '#233554' }} />
-
-                                    {/* Section: Account Setup */}
-                                    <div>
-                                        <p style={{ fontSize: '11px', fontWeight: 700, color: '#4f46e5', textTransform: 'uppercase' as const, letterSpacing: '0.1em', marginBottom: '14px' }}>
-                                            Account Setup
-                                        </p>
-                                        <div>
-                                            <label style={labelStyle}>Password <span style={{ color: '#ff6b6b' }}>*</span></label>
-                                            <input name="password" type="password" required minLength={6} placeholder="Min. 6 characters" style={inputStyle} />
-                                            <p style={{ fontSize: '12px', color: '#4a5568', marginTop: '6px' }}>
-                                                Must be at least 6 characters long
-                                            </p>
-                                        </div>
-                                    </div>
 
                                     {/* Submit */}
                                     <button

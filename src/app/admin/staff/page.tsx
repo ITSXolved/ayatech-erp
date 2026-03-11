@@ -22,38 +22,39 @@ export default async function AdminStaffPage() {
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
 
-    // Fetch all courses for assignment
+    // Fetch all courses for the dialog dropdown
     const { data: coursesData } = await supabase
         .from('courses')
-        .select('id, name, assigned_manager_id, assigned_mentor_id')
+        .select('id, name')
         .is('deleted_at', null)
         .order('name')
 
+    // Fetch all staff assignments from the junction table
+    const { data: assignmentsData } = await supabase
+        .from('course_staff')
+        .select(`
+            course_id,
+            user_id,
+            courses ( name )
+        `)
+
     const allCourses = (coursesData || []).map(c => ({ id: c.id, name: c.name }))
 
-    // Build a map: userId → [courseIds]
+    // Build a map: userId → [courseIds] and userId → [courseNames]
     const userCourseMap: Record<string, string[]> = {}
-    for (const c of coursesData || []) {
-        if (c.assigned_manager_id) {
-            if (!userCourseMap[c.assigned_manager_id]) userCourseMap[c.assigned_manager_id] = []
-            userCourseMap[c.assigned_manager_id].push(c.id)
-        }
-        if (c.assigned_mentor_id) {
-            if (!userCourseMap[c.assigned_mentor_id]) userCourseMap[c.assigned_mentor_id] = []
-            userCourseMap[c.assigned_mentor_id].push(c.id)
-        }
-    }
-
-    // Build a map: userId → [courseNames]
     const userCourseNameMap: Record<string, string[]> = {}
-    for (const c of coursesData || []) {
-        if (c.assigned_manager_id) {
-            if (!userCourseNameMap[c.assigned_manager_id]) userCourseNameMap[c.assigned_manager_id] = []
-            userCourseNameMap[c.assigned_manager_id].push(c.name)
-        }
-        if (c.assigned_mentor_id) {
-            if (!userCourseNameMap[c.assigned_mentor_id]) userCourseNameMap[c.assigned_mentor_id] = []
-            userCourseNameMap[c.assigned_mentor_id].push(c.name)
+
+    for (const a of (assignmentsData as any[]) || []) {
+        const userId = a.user_id
+        const courseId = a.course_id
+        const courseName = (a.courses as any)?.name
+
+        if (!userCourseMap[userId]) userCourseMap[userId] = []
+        userCourseMap[userId].push(courseId)
+
+        if (courseName) {
+            if (!userCourseNameMap[userId]) userCourseNameMap[userId] = []
+            userCourseNameMap[userId].push(courseName)
         }
     }
 

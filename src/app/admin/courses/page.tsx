@@ -13,9 +13,11 @@ export default async function AdminCoursesPage() {
     const { data: courses } = await supabase
         .from('courses')
         .select(`
-      id, name, category, fee, promoter_commission_rate, is_active, assigned_manager_id, assigned_mentor_id, canvas_course_id, created_at,
-      manager:assigned_manager_id ( email, full_name ),
-      mentor:assigned_mentor_id ( email, full_name )
+      id, name, category, fee, promoter_commission_rate, is_active, canvas_course_id, created_at,
+      staff:course_staff (
+        role,
+        user:users ( email, full_name )
+      )
     `)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
@@ -90,9 +92,7 @@ export default async function AdminCoursesPage() {
                                                     <TableCell colSpan={7} className="text-center h-24">No courses found.</TableCell>
                                                 </TableRow>
                                             ) : (
-                                                courses.map((course) => {
-                                                    const manager = Array.isArray(course.manager) ? course.manager[0] : course.manager
-                                                    const mentor = Array.isArray(course.mentor) ? course.mentor[0] : course.mentor
+                                                courses.map((course: any) => {
                                                     return (
                                                         <TableRow key={course.id}>
                                                             <TableCell className="font-medium">
@@ -109,22 +109,24 @@ export default async function AdminCoursesPage() {
                                                                 )}
                                                             </TableCell>
                                                             <TableCell>
-                                                                {manager ? (
-                                                                    <div>
-                                                                        <div className="text-sm">{(manager as { full_name: string }).full_name}</div>
-                                                                        <div className="text-xs text-muted-foreground">{(manager as { email: string }).email}</div>
+                                                                {course.staff?.filter((s: any) => s.role === 'course_manager').map((s: any) => (
+                                                                    <div key={s.user.email} className="mb-2 last:mb-0">
+                                                                        <div className="text-sm">{s.user.full_name}</div>
+                                                                        <div className="text-xs text-muted-foreground">{s.user.email}</div>
                                                                     </div>
-                                                                ) : (
+                                                                ))}
+                                                                {course.staff?.filter((s: any) => s.role === 'course_manager').length === 0 && (
                                                                     <span className="text-xs text-muted-foreground">Unassigned</span>
                                                                 )}
                                                             </TableCell>
                                                             <TableCell>
-                                                                {mentor ? (
-                                                                    <div>
-                                                                        <div className="text-sm">{(mentor as { full_name: string }).full_name}</div>
-                                                                        <div className="text-xs text-muted-foreground">{(mentor as { email: string }).email}</div>
+                                                                {course.staff?.filter((s: any) => s.role === 'mentor').map((s: any) => (
+                                                                    <div key={s.user.email} className="mb-2 last:mb-0">
+                                                                        <div className="text-sm">{s.user.full_name}</div>
+                                                                        <div className="text-xs text-muted-foreground">{s.user.email}</div>
                                                                     </div>
-                                                                ) : (
+                                                                ))}
+                                                                {course.staff?.filter((s: any) => s.role === 'mentor').length === 0 && (
                                                                     <span className="text-xs text-muted-foreground">Unassigned</span>
                                                                 )}
                                                             </TableCell>
@@ -143,9 +145,12 @@ export default async function AdminCoursesPage() {
                                                                             category: course.category,
                                                                             fee: Number(course.fee),
                                                                             promoter_commission_rate: course.promoter_commission_rate ? Number(course.promoter_commission_rate) : null,
-                                                                            assigned_manager_id: course.assigned_manager_id,
-                                                                            assigned_mentor_id: course.assigned_mentor_id,
+                                                                            assigned_manager_ids: course.staff?.filter((s: any) => s.role === 'course_manager').map((s: any) => s.user.id) || [],
+                                                                            assigned_mentor_ids: course.staff?.filter((s: any) => s.role === 'mentor').map((s: any) => s.user.id) || [],
                                                                             canvas_course_id: course.canvas_course_id,
+                                                                            course_groups: course.course_groups || [],
+                                                                            applicable_classes: null,
+                                                                            class_group_name: null
                                                                         }}
                                                                         managers={managers}
                                                                         mentors={mentors}

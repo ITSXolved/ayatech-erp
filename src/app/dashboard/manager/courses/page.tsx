@@ -9,7 +9,7 @@ export default async function CourseManagementPage() {
     const supabase = await createClient()
     const adminDb = createAdminClient()
 
-    const courseIds = assignedCourses.map((c: { id: string }) => c.id)
+    const courseIds = assignedCourses.map(c => c.id)
 
     // Fetch existing schedules
     const { data: schedules } = await supabase
@@ -20,7 +20,7 @@ export default async function CourseManagementPage() {
 
     // Build course name map
     const courseNameMap: Record<string, string> = {}
-    assignedCourses.forEach((c: { id: string; name: string }) => { courseNameMap[c.id] = c.name })
+    assignedCourses.forEach(c => { courseNameMap[c.id] = c.name })
 
     // Fetch mentor data using admin client
     const { data: rawMentors } = await adminDb.from('mentors').select('id, user_id')
@@ -39,7 +39,7 @@ export default async function CourseManagementPage() {
         name: userNameMap.get(m.user_id) || 'Unknown',
     }))
 
-    const courses = assignedCourses.map((c: { id: string; name: string }) => ({
+    const courses = assignedCourses.map(c => ({
         id: c.id,
         name: c.name,
     }))

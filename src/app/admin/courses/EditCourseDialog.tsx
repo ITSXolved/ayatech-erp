@@ -10,8 +10,8 @@ interface CourseData {
     category: string
     fee: number
     promoter_commission_rate: number | null
-    assigned_manager_id: string | null
-    assigned_mentor_id: string | null
+    assigned_manager_ids: string[]
+    assigned_mentor_ids: string[]
     canvas_course_id: string | null
     applicable_classes: string[] | null
     class_group_name: string | null
@@ -39,9 +39,8 @@ export default function EditCourseDialog({ course, managers, mentors = [] }: { c
     useEffect(() => {
         if (open) {
             getCourseCategories().then(cats => setCategories(cats)).catch(console.error)
-            setGroups(course.course_groups || [])
         }
-    }, [open, course.course_groups])
+    }, [open])
 
     const addGroup = () => setGroups([...groups, { name: '', classes: [] }])
     const removeGroup = (index: number) => setGroups(groups.filter((_, i) => i !== index))
@@ -190,34 +189,36 @@ export default function EditCourseDialog({ course, managers, mentors = [] }: { c
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Assigned Manager</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Assigned Managers</label>
                         <select
-                            name="assigned_manager_id"
-                            defaultValue={course.assigned_manager_id || ''}
-                            className="w-full px-3 py-2 border border-slate-300 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a192f]"
+                            name="assigned_manager_ids"
+                            multiple
+                            defaultValue={course.assigned_manager_ids}
+                            className="w-full px-3 py-2 border border-slate-300 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a192f] min-h-[100px]"
                         >
-                            <option value="">No manager assigned</option>
                             {managers.map(m => (
                                 <option key={m.id} value={m.id}>
                                     {m.full_name} ({m.email})
                                 </option>
                             ))}
                         </select>
+                        <p className="text-[10px] text-slate-400 mt-1">Hold Ctrl/Cmd to select multiple</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Assigned Mentor</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Assigned Mentors</label>
                         <select
-                            name="assigned_mentor_id"
-                            defaultValue={course.assigned_mentor_id || ''}
-                            className="w-full px-3 py-2 border border-slate-300 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a192f]"
+                            name="assigned_mentor_ids"
+                            multiple
+                            defaultValue={course.assigned_mentor_ids}
+                            className="w-full px-3 py-2 border border-slate-300 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0a192f] min-h-[100px]"
                         >
-                            <option value="">No mentor assigned</option>
                             {mentors.map(m => (
                                 <option key={m.id} value={m.id}>
                                     {m.full_name} ({m.email})
                                 </option>
                             ))}
                         </select>
+                        <p className="text-[10px] text-slate-400 mt-1">Hold Ctrl/Cmd to select multiple</p>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Canvas Course ID</label>

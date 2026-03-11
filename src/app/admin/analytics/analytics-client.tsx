@@ -140,9 +140,9 @@ export default function AnalyticsClient({ rawApps, pieData, revenue, commissions
                                 <YAxis />
                                 <Tooltip cursor={{ fill: 'transparent' }} />
                                 <Legend />
-                                <Bar dataKey="Interested" name="Interested" stackId="a" fill={COLORS[2]} radius={[0, 0, 4, 4]} />
-                                <Bar dataKey="Converted" name="Converted" stackId="a" fill={COLORS[0]} />
-                                <Bar dataKey="Done" name="Done" stackId="a" fill={COLORS[1]} radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="Interested" name="Interested" fill={COLORS[2]} radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="Converted" name="Converted" fill={COLORS[0]} radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="Done" name="Done" fill={COLORS[1]} radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
