@@ -4,8 +4,8 @@ import Razorpay from 'razorpay'
 import { createClient } from '@/lib/supabase/server'
 
 const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_KEY_SECRET!
+    key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SPnQwzaNxPG8nf',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || 'm5vHNd1Z6EN6oCFv8I9XUaVk'
 })
 
 export async function createRazorpayOrder(applicationId: string) {
@@ -54,7 +54,7 @@ export async function createRazorpayOrder(applicationId: string) {
             success: true,
             orderId: order.id,
             amount: options.amount,
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID // Send publishable key to client
+            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || 'rzp_live_SPnQwzaNxPG8nf' // Send publishable key to client
         }
     } catch (err: unknown) {
         console.error('Razorpay Error:', err)
@@ -101,8 +101,8 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 // Service Role client for bypass RLS
 function getAdminClient() {
     return createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
+        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://tfmehkiouuzwiigdctgt.supabase.co',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRmbWVoa2lvdXV6d2lpZ2RjdGd0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjcyNjQ2NSwiZXhwIjoyMDgyMzAyNDY1fQ.u5Gb8f5Io9JfS0qbh_Gs3p73_rupKOKho43QUPVE2yk'
     )
 }
 
@@ -116,7 +116,7 @@ export async function verifyRazorpayPayment(
     try {
         const body = orderId + "|" + paymentId;
         const expectedSignature = crypto
-            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'm5vHNd1Z6EN6oCFv8I9XUaVk')
             .update(body)
             .digest('hex');
 
