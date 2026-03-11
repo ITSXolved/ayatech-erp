@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { updateApplicationStatus, deleteApplication, adminSyncApplicationPayment } from './actions'
 import { formatDate } from '@/lib/utils'
 import WhatsAppShareButton from '@/components/WhatsAppShareButton'
+import CopyApplicationLink from '@/components/CopyApplicationLink'
 
 interface CourseInfo {
     name: string
@@ -231,6 +232,9 @@ export default async function AdminApplicationsPage() {
                                             {/* Actions */}
                                             <TableCell className="text-right">
                                                 <div className="flex flex-col gap-1 items-end">
+                                                    {app.status === 'Draft' && (
+                                                        <CopyApplicationLink applicationId={app.id} />
+                                                    )}
                                                     {app.status === 'Draft' && (
                                                         <form action={updateApplicationStatus.bind(null, app.id, 'Submitted')}>
                                                             <Button size="sm" variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 hover:bg-blue-100">

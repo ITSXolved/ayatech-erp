@@ -43,22 +43,36 @@ const labelStyle = {
     marginBottom: '6px',
 }
 
-export default function ApplicationForm({ courses }: { courses: { id: string; name: string; fee: number; course_groups?: { name: string; classes: string[] }[] | null }[] }) {
+export default function ApplicationForm({
+    courses,
+    initialData,
+    initialId
+}: {
+    courses: { id: string; name: string; fee: number; course_groups?: { name: string; classes: string[] }[] | null }[];
+    initialData?: any;
+    initialId?: string;
+}) {
     const [formData, setFormData] = useState({
-        student_name: '',
-        email: '',
-        phone: '',
-        state: '',
-        course_id: '',
-        class: '',
-        mentor_code: ''
+        student_name: initialData?.student_name || '',
+        email: initialData?.email || '',
+        phone: initialData?.phone || '',
+        state: initialData?.state || '',
+        course_id: initialData?.course_id || '',
+        class: initialData?.class || '',
+        mentor_code: initialData?.mentors?.mentor_code || initialData?.course_managers?.mentor_code || ''
     })
 
-    const [referrer, setReferrer] = useState<{ id: string; name: string; type: 'mentor' | 'manager' } | null>(null)
+    const [referrer, setReferrer] = useState<{ id: string; name: string; type: 'mentor' | 'manager' } | null>(
+        initialData?.mentors
+            ? { id: initialData.mentor_id, name: initialData.mentors.users?.full_name || 'Mentor', type: 'mentor' }
+            : initialData?.course_managers
+                ? { id: initialData.course_manager_id, name: initialData.course_managers.users?.full_name || 'Manager', type: 'manager' }
+                : null
+    )
     const [mentorLoading, setMentorLoading] = useState(false)
     const [mentorError, setMentorError] = useState('')
 
-    const [applicationId, setApplicationId] = useState<string | null>(null)
+    const [applicationId, setApplicationId] = useState<string | null>(initialId || null)
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
     const [errorMessage, setErrorMessage] = useState('')
 

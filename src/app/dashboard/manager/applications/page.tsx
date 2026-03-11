@@ -4,6 +4,7 @@ import { enforceManagerGuard } from '@/lib/manager-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatDate } from '@/lib/utils'
 import WhatsAppShareButton from '@/components/WhatsAppShareButton'
+import CopyApplicationLink from '@/components/CopyApplicationLink'
 
 interface CourseInfo { name: string; fee: number }
 interface MentorUser { full_name: string }
@@ -205,14 +206,19 @@ export default async function ManagerApplicationsPage() {
 
                                             {/* Actions */}
                                             <TableCell className="text-right">
-                                                {app.lms && app.phone && (
-                                                    <WhatsAppShareButton
-                                                        phone={app.phone}
-                                                        courseName={app.course?.name}
-                                                        loginId={app.lms.login_id}
-                                                        password={app.lms.password}
-                                                    />
-                                                )}
+                                                <div className="flex justify-end gap-2">
+                                                    {app.status === 'Draft' && (
+                                                        <CopyApplicationLink applicationId={app.id} />
+                                                    )}
+                                                    {app.lms && app.phone && (
+                                                        <WhatsAppShareButton
+                                                            phone={app.phone}
+                                                            courseName={app.course?.name}
+                                                            loginId={app.lms.login_id}
+                                                            password={app.lms.password}
+                                                        />
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))

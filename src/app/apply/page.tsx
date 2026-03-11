@@ -1,5 +1,6 @@
 import ApplicationForm from './form'
 import { createClient } from '@/lib/supabase/server'
+import { getApplication } from './actions'
 
 async function getActiveCourses() {
     const supabase = await createClient()
@@ -7,11 +8,23 @@ async function getActiveCourses() {
         .from('courses')
         .select('id, name, fee, course_groups')
         .eq('is_active', true)
+        .is('deleted_at', null)
     return data || []
 }
 
-export default async function ApplicationContainer() {
+export default async function ApplicationContainer({
+    searchParams
+}: {
+    searchParams: { id?: string }
+}) {
+    const params = await searchParams
+    const initialId = params.id
     const rawCourses = await getActiveCourses()
+
+    let initialData = null
+    if (initialId) {
+        initialData = await getApplication(initialId)
+    }
 
     return (
         <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #0a192f 0%, #112240 50%, #0a192f 100%)' }}>
@@ -38,7 +51,11 @@ export default async function ApplicationContainer() {
                     </p>
                 </div>
 
-                <ApplicationForm courses={rawCourses} />
+                <ApplicationForm
+                    courses={rawCourses}
+                    initialData={initialData}
+                    initialId={initialId}
+                />
 
                 <p className="mt-8 text-center text-sm" style={{ color: '#4a5568' }}>
                     © {new Date().getFullYear()} Ayatech. All rights reserved.
