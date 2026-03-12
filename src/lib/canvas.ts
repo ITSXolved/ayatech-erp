@@ -16,51 +16,92 @@ export async function provisionCanvasUser(studentData: {
         throw new Error('Canvas Course ID not configured for this course.');
     }
 
-    // Generate a random initial password
-    const password = Math.random().toString(36).slice(-10);
-
-    // 1. Create User in Canvas LMS
-    const userPayload = {
-        user: {
-            name: studentData.name,
-            short_name: studentData.name,
-        },
-        pseudonym: {
-            unique_id: studentData.email,
-            password: password,
-            send_confirmation: false
-        },
-        communication_channel: {
-            type: 'email',
-            address: studentData.email,
-            skip_confirmation: true
-        }
-    };
-
-    const createUserRes = await fetch(`${CANVAS_URL}/api/v1/accounts/1/users`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${TOKEN}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userPayload)
-    });
-
-    if (!createUserRes.ok) {
-        const err = await createUserRes.text();
-        console.error('Canvas User Creation Error:', err);
-        throw new Error('Failed to create Canvas User');
+    // Generate a robust initial password (uppercase + lowercase + numbers, URL-safe)
+    const charset = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let password = "";
+    for (let i = 0; i < 10; i++) {
+        password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
 
-    const canvasUser = await createUserRes.json();
+    let canvasUserId: string;
 
-    // 2. Enroll User in Course using the real Canvas Course ID
+    // 1. Check if user already exists in Canvas LMS
+    const searchRes = await fetch(`${CANVAS_URL}/api/v1/accounts/1/users?search_term=${encodeURIComponent(studentData.email)}`, {
+        headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+
+    const matchedUsers = await searchRes.json();
+    const existingUser = Array.isArray(matchedUsers) ? matchedUsers.find((u: { login_id: string; email: string; id: number }) => u.login_id === studentData.email || u.email === studentData.email) : null;
+
+    if (existingUser) {
+        canvasUserId = existingUser.id.toString();
+        // A. Update Existing User's Password & Name to sync with current registration
+        // We'll update the name separately to be clean
+        await fetch(`${CANVAS_URL}/api/v1/users/${canvasUserId}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: { name: studentData.name, short_name: studentData.name } })
+        });
+
+        // We need the pseudonym ID to update the password.
+        const loginRes = await fetch(`${CANVAS_URL}/api/v1/users/${canvasUserId}/logins`, {
+            headers: { 'Authorization': `Bearer ${TOKEN}` }
+        });
+        const logins = await loginRes.json();
+        const primaryLogin = Array.isArray(logins) ? logins.find((l: { unique_id: string; id: number }) => l.unique_id === studentData.email) : null;
+
+        if (primaryLogin) {
+            await fetch(`${CANVAS_URL}/api/v1/accounts/1/logins/${primaryLogin.id}`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pseudonym: { password: password } })
+            });
+        }
+    } else {
+        // 2. Create New User in Canvas LMS
+        const userPayload = {
+            user: {
+                name: studentData.name,
+                short_name: studentData.name,
+            },
+            pseudonym: {
+                unique_id: studentData.email,
+                password: password,
+                send_confirmation: false
+            },
+            communication_channel: {
+                type: 'email',
+                address: studentData.email,
+                skip_confirmation: true
+            }
+        };
+
+        const createUserRes = await fetch(`${CANVAS_URL}/api/v1/accounts/1/users`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${TOKEN}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userPayload)
+        });
+
+        if (!createUserRes.ok) {
+            const err = await createUserRes.text();
+            console.error('Canvas User Creation Error:', err);
+            throw new Error('Failed to create Canvas User');
+        }
+
+        const newUser = await createUserRes.json();
+        canvasUserId = newUser.id.toString();
+    }
+
+    // 3. Enroll User in Course (This handles both new and existing users)
     const enrollPayload = {
         enrollment: {
-            user_id: canvasUser.id,
+            user_id: canvasUserId,
             type: 'StudentEnrollment',
             enrollment_state: 'active',
-            notify: false // we handle emails manually via Gmail SMTP
+            notify: false
         }
     };
 
@@ -76,7 +117,10 @@ export async function provisionCanvasUser(studentData: {
     if (!enrollRes.ok) {
         const err = await enrollRes.text();
         console.error('Canvas Enrollment Error:', err);
-        throw new Error('Failed to enroll user in Canvas course');
+        // If they are already enrolled, Canvas might return an error - we should check if it's just a "already enrolled" conflict
+        if (!err.includes('already enrolled') && !err.includes('Conflict')) {
+            throw new Error('Failed to enroll user in Canvas course');
+        }
     }
 
     const enrollment = await enrollRes.json();
@@ -84,7 +128,7 @@ export async function provisionCanvasUser(studentData: {
     let assignedGroupName: string | null = null;
     let assignedGroupId: string | null = null;
 
-    // 3. Dynamic Group Assignment (if class data is present)
+    // 4. Dynamic Group Assignment (if class data is present)
     if (studentData.student_class && studentData.course_groups && studentData.course_groups.length > 0) {
         try {
             // Find which group the student belongs to
@@ -96,7 +140,6 @@ export async function provisionCanvasUser(studentData: {
                 const groupNamePrefix = targetGroupTemplate.name;
 
                 // A. Find or Create Group Category (Set) in Course
-                // First, check if a category for "Class Groups" exists
                 const categoriesRes = await fetch(`${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/group_categories`, {
                     headers: { 'Authorization': `Bearer ${TOKEN}` }
                 });
@@ -120,10 +163,8 @@ export async function provisionCanvasUser(studentData: {
                     });
                     const groups = await groupsRes.json();
 
-                    // Filter groups starting with the prefix (e.g. "Lower Primary")
                     const relevantGroups = groups.filter((g: any) => g.name.startsWith(groupNamePrefix))
                         .sort((a: any, b: any) => {
-                            // Sort by numeric suffix if possible
                             const getNum = (name: string) => parseInt(name.split('-').pop() || '0');
                             return getNum(a.name) - getNum(b.name);
                         });
@@ -138,7 +179,6 @@ export async function provisionCanvasUser(studentData: {
                         }
                     }
 
-                    // C. Create new group if none available
                     if (!targetGroupId) {
                         const nextNum = relevantGroups.length + 1;
                         const newGroupName = `${groupNamePrefix}-${nextNum}`;
@@ -152,12 +192,12 @@ export async function provisionCanvasUser(studentData: {
                         targetGroupName = newGroupName;
                     }
 
-                    // D. Add student to group
+                    // D. Add student to group (check if already in group first is safer, but memberships usually idempotent)
                     if (targetGroupId) {
                         await fetch(`${CANVAS_URL}/api/v1/groups/${targetGroupId}/memberships`, {
                             method: 'POST',
                             headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ user_id: canvasUser.id })
+                            body: JSON.stringify({ user_id: canvasUserId })
                         });
                         assignedGroupId = targetGroupId.toString();
                         assignedGroupName = targetGroupName;
@@ -166,13 +206,12 @@ export async function provisionCanvasUser(studentData: {
             }
         } catch (groupError) {
             console.error('Canvas Dynamic Group Assignment Error (Non-blocking):', groupError);
-            // We don't throw here to ensure the main enrollment succeeds even if grouping fails
         }
     }
 
     return {
-        canvas_user_id: canvasUser.id.toString(),
-        canvas_enrollment_id: enrollment.id.toString(),
+        canvas_user_id: canvasUserId,
+        canvas_enrollment_id: enrollment?.id?.toString() || 'existing',
         canvas_group_id: assignedGroupId,
         canvas_group_name: assignedGroupName,
         login_id: studentData.email,
