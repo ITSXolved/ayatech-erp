@@ -1,10 +1,20 @@
+export interface CanvasProvisioningResult {
+    canvas_user_id: string;
+    canvas_enrollment_id: string;
+    canvas_section_id: string | null;
+    canvas_section_name: string | null;
+    login_id: string;
+    password: string;
+    lms_url: string;
+}
+
 export async function provisionCanvasUser(studentData: {
     name: string;
     email: string;
     canvas_course_id: string; // Canvas LMS Course ID
     student_class?: string;
     course_groups?: { name: string; classes: string[] }[];
-}) {
+}): Promise<CanvasProvisioningResult> {
     const CANVAS_URL = process.env.CANVAS_BASE_URL;
     const TOKEN = process.env.CANVAS_API_TOKEN;
 
@@ -30,8 +40,8 @@ export async function provisionCanvasUser(studentData: {
         headers: { 'Authorization': `Bearer ${TOKEN}` }
     });
 
-    const matchedUsers = await searchRes.json();
-    const existingUser = Array.isArray(matchedUsers) ? matchedUsers.find((u: { login_id: string; email: string; id: number }) => u.login_id === studentData.email || u.email === studentData.email) : null;
+    const matchedUsers = await searchRes.json() as { login_id: string; email: string; id: number }[];
+    const existingUser = Array.isArray(matchedUsers) ? matchedUsers.find((u) => u.login_id === studentData.email || u.email === studentData.email) : null;
 
     if (existingUser) {
         canvasUserId = existingUser.id.toString();
@@ -47,8 +57,8 @@ export async function provisionCanvasUser(studentData: {
         const loginRes = await fetch(`${CANVAS_URL}/api/v1/users/${canvasUserId}/logins`, {
             headers: { 'Authorization': `Bearer ${TOKEN}` }
         });
-        const logins = await loginRes.json();
-        const primaryLogin = Array.isArray(logins) ? logins.find((l: { unique_id: string; id: number }) => l.unique_id === studentData.email) : null;
+        const logins = await loginRes.json() as { unique_id: string; id: number }[];
+        const primaryLogin = Array.isArray(logins) ? logins.find((l) => l.unique_id === studentData.email) : null;
 
         if (primaryLogin) {
             await fetch(`${CANVAS_URL}/api/v1/accounts/1/logins/${primaryLogin.id}`, {
@@ -91,7 +101,7 @@ export async function provisionCanvasUser(studentData: {
             throw new Error('Failed to create Canvas User');
         }
 
-        const newUser = await createUserRes.json();
+        const newUser = await createUserRes.json() as { id: number };
         canvasUserId = newUser.id.toString();
     }
 
@@ -123,99 +133,95 @@ export async function provisionCanvasUser(studentData: {
         }
     }
 
-    const enrollment = await enrollRes.json();
+    const enrollment = await enrollRes.json() as { id: number };
 
-    let assignedGroupName: string | null = null;
-    let assignedGroupId: string | null = null;
+    let assignedSectionName: string | null = null;
+    let assignedSectionId: string | null = null;
 
-    // 4. Dynamic Group Assignment (if class data is present)
+    // 4. Dynamic Section Assignment (if class data is present)
     if (studentData.student_class && studentData.course_groups && studentData.course_groups.length > 0) {
         try {
-            // Find which group the student belongs to
-            const targetGroupTemplate = studentData.course_groups.find(g =>
+            // Find which section prefix the student belongs to
+            const targetSectionTemplate = studentData.course_groups.find(g =>
                 g.classes.includes(studentData.student_class!)
             );
 
-            if (targetGroupTemplate) {
-                const groupNamePrefix = targetGroupTemplate.name;
+            if (targetSectionTemplate) {
+                const sectionNamePrefix = targetSectionTemplate.name;
 
-                // A. Find or Create Group Category (Set) in Course
-                const categoriesRes = await fetch(`${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/group_categories`, {
+                // A. Fetch existing sections with student counts
+                const sectionsRes = await fetch(`${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/sections?include[]=total_students`, {
                     headers: { 'Authorization': `Bearer ${TOKEN}` }
                 });
-                const categories = await categoriesRes.json();
-                let categoryId = categories.find((c: any) => c.name === "Course Sections")?.id;
+                const sections = await sectionsRes.json() as { id: number; name: string; total_students: number }[];
 
-                if (!categoryId) {
-                    const createCatRes = await fetch(`${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/group_categories`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: "Course Sections" })
-                    });
-                    const newCat = await createCatRes.json();
-                    categoryId = newCat.id;
-                }
-
-                if (categoryId) {
-                    // B. Find an available group or create one
-                    const groupsRes = await fetch(`${CANVAS_URL}/api/v1/group_categories/${categoryId}/groups?per_page=100`, {
-                        headers: { 'Authorization': `Bearer ${TOKEN}` }
-                    });
-                    const groups = await groupsRes.json();
-
-                    const relevantGroups = groups.filter((g: any) => g.name.startsWith(groupNamePrefix))
-                        .sort((a: any, b: any) => {
-                            const getNum = (name: string) => parseInt(name.split('-').pop() || '0');
+                if (Array.isArray(sections)) {
+                    const relevantSections = sections.filter((s) => s.name.startsWith(sectionNamePrefix))
+                        .sort((a, b) => {
+                            const getNum = (name: string) => {
+                                const parts = name.split('-');
+                                return parseInt(parts[parts.length - 1] || '0');
+                            };
                             return getNum(a.name) - getNum(b.name);
                         });
 
-                    let targetGroupId = null;
-                    let targetGroupName = null;
-                    for (const group of relevantGroups) {
-                        if (group.members_count < 22) {
-                            targetGroupId = group.id;
-                            targetGroupName = group.name;
+                    let targetId = null;
+                    let targetName = null;
+
+                    // B. Find a section with < 22 students
+                    for (const section of relevantSections) {
+                        if (section.total_students < 22) {
+                            targetId = section.id;
+                            targetName = section.name;
                             break;
                         }
                     }
 
-                    if (!targetGroupId) {
-                        const nextNum = relevantGroups.length + 1;
-                        const newGroupName = `${groupNamePrefix}-${nextNum}`;
-                        const createGroupRes = await fetch(`${CANVAS_URL}/api/v1/group_categories/${categoryId}/groups`, {
+                    // C. Create new section if none available or all full
+                    if (!targetId) {
+                        const nextNum = relevantSections.length + 1;
+                        const newSectionName = `${sectionNamePrefix}-${nextNum}`;
+                        const createSectionRes = await fetch(`${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/sections`, {
                             method: 'POST',
                             headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name: newGroupName, join_level: 'invitation_only' })
+                            body: JSON.stringify({ course_section: { name: newSectionName } })
                         });
-                        const newGroup = await createGroupRes.json();
-                        targetGroupId = newGroup.id;
-                        targetGroupName = newGroupName;
+                        const newSection = await createSectionRes.json() as { id: number };
+                        targetId = newSection.id;
+                        targetName = newSectionName;
                     }
 
-                    // D. Add student to group (check if already in group first is safer, but memberships usually idempotent)
-                    if (targetGroupId) {
-                        await fetch(`${CANVAS_URL}/api/v1/groups/${targetGroupId}/memberships`, {
+                    // D. Enroll User in Section (Enrollment in section automatically provides course access)
+                    if (targetId) {
+                        await fetch(`${CANVAS_URL}/api/v1/sections/${targetId}/enrollments`, {
                             method: 'POST',
                             headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ user_id: canvasUserId })
+                            body: JSON.stringify({
+                                enrollment: {
+                                    user_id: canvasUserId,
+                                    type: 'StudentEnrollment',
+                                    enrollment_state: 'active',
+                                    notify: false
+                                }
+                            })
                         });
-                        assignedGroupId = targetGroupId.toString();
-                        assignedGroupName = targetGroupName;
+                        assignedSectionId = targetId.toString();
+                        assignedSectionName = targetName;
                     }
                 }
             }
-        } catch (groupError) {
-            console.error('Canvas Dynamic Group Assignment Error (Non-blocking):', groupError);
+        } catch (sectionError) {
+            console.error('Canvas Section Assignment Error (Non-blocking):', sectionError);
         }
     }
 
     return {
         canvas_user_id: canvasUserId,
         canvas_enrollment_id: enrollment?.id?.toString() || 'existing',
-        canvas_group_id: assignedGroupId,
-        canvas_group_name: assignedGroupName,
+        canvas_section_id: assignedSectionId,
+        canvas_section_name: assignedSectionName,
         login_id: studentData.email,
         password: password,
-        lms_url: CANVAS_URL,
+        lms_url: CANVAS_URL || '',
     };
 }

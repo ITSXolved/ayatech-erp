@@ -67,8 +67,8 @@ export async function processApplicationAutomation(applicationId: string) {
             application_id: fullApp.id,
             canvas_user_id: credentials.canvas_user_id,
             canvas_enrollment_id: credentials.canvas_enrollment_id,
-            canvas_group_id: credentials.canvas_group_id,
-            canvas_group_name: credentials.canvas_group_name,
+            canvas_section_id: credentials.canvas_section_id,
+            canvas_section_name: credentials.canvas_section_name,
             login_id: credentials.login_id,
             password: credentials.password,
             status: 'Provisioned'
