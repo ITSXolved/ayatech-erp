@@ -8,12 +8,28 @@ export interface CanvasProvisioningResult {
     lms_url: string;
 }
 
+/**
+ * Determines the Canvas section prefix based on the student's class.
+ * Hardcoded rules:
+ *  - 1st, 2nd, 3rd       → "lower primary"
+ *  - 4th, 5th             → "primary"
+ *  - 6th, 7th             → "upper primary"
+ *  - all others           → "other"
+ */
+function getSectionPrefix(studentClass: string | undefined): string {
+    if (!studentClass) return 'other';
+    const cls = studentClass.toLowerCase().trim();
+    if (['1st', '2nd', '3rd'].includes(cls)) return 'lower primary';
+    if (['4th', '5th'].includes(cls)) return 'primary';
+    if (['6th', '7th'].includes(cls)) return 'upper primary';
+    return 'other';
+}
+
 export async function provisionCanvasUser(studentData: {
     name: string;
     email: string;
-    canvas_course_id: string; // Canvas LMS Course ID
+    canvas_course_id: string;
     student_class?: string;
-    course_groups?: { name: string; classes: string[] }[];
 }): Promise<CanvasProvisioningResult> {
     const CANVAS_URL = process.env.CANVAS_BASE_URL;
     const TOKEN = process.env.CANVAS_API_TOKEN;
@@ -26,9 +42,9 @@ export async function provisionCanvasUser(studentData: {
         throw new Error('Canvas Course ID not configured for this course.');
     }
 
-    // Generate a robust initial password (uppercase + lowercase + numbers, URL-safe)
-    const charset = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
-    let password = "";
+    // Generate a robust password (uppercase + lowercase + numbers, URL-safe)
+    const charset = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    let password = '';
     for (let i = 0; i < 10; i++) {
         password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
@@ -36,63 +52,51 @@ export async function provisionCanvasUser(studentData: {
     let canvasUserId: string;
 
     // 1. Check if user already exists in Canvas LMS
-    const searchRes = await fetch(`${CANVAS_URL}/api/v1/accounts/1/users?search_term=${encodeURIComponent(studentData.email)}`, {
-        headers: { 'Authorization': `Bearer ${TOKEN}` }
-    });
-
-    const matchedUsers = await searchRes.json() as { login_id: string; email: string; id: number }[];
-    const existingUser = Array.isArray(matchedUsers) ? matchedUsers.find((u) => u.login_id === studentData.email || u.email === studentData.email) : null;
+    const searchRes = await fetch(
+        `${CANVAS_URL}/api/v1/accounts/1/users?search_term=${encodeURIComponent(studentData.email)}`,
+        { headers: { Authorization: `Bearer ${TOKEN}` } }
+    );
+    const matchedUsers = (await searchRes.json()) as { login_id: string; email: string; id: number }[];
+    const existingUser = Array.isArray(matchedUsers)
+        ? matchedUsers.find((u) => u.login_id === studentData.email || u.email === studentData.email)
+        : null;
 
     if (existingUser) {
         canvasUserId = existingUser.id.toString();
-        // A. Update Existing User's Password & Name to sync with current registration
-        // We'll update the name separately to be clean
+
+        // Update name
         await fetch(`${CANVAS_URL}/api/v1/users/${canvasUserId}`, {
             method: 'PUT',
-            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user: { name: studentData.name, short_name: studentData.name } })
+            headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: { name: studentData.name, short_name: studentData.name } }),
         });
 
-        // We need the pseudonym ID to update the password.
+        // Update password via pseudonym
         const loginRes = await fetch(`${CANVAS_URL}/api/v1/users/${canvasUserId}/logins`, {
-            headers: { 'Authorization': `Bearer ${TOKEN}` }
+            headers: { Authorization: `Bearer ${TOKEN}` },
         });
-        const logins = await loginRes.json() as { unique_id: string; id: number }[];
-        const primaryLogin = Array.isArray(logins) ? logins.find((l) => l.unique_id === studentData.email) : null;
+        const logins = (await loginRes.json()) as { unique_id: string; id: number }[];
+        const primaryLogin = Array.isArray(logins)
+            ? logins.find((l) => l.unique_id === studentData.email)
+            : null;
 
         if (primaryLogin) {
             await fetch(`${CANVAS_URL}/api/v1/accounts/1/logins/${primaryLogin.id}`, {
                 method: 'PUT',
-                headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pseudonym: { password: password } })
+                headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pseudonym: { password } }),
             });
         }
     } else {
-        // 2. Create New User in Canvas LMS
-        const userPayload = {
-            user: {
-                name: studentData.name,
-                short_name: studentData.name,
-            },
-            pseudonym: {
-                unique_id: studentData.email,
-                password: password,
-                send_confirmation: false
-            },
-            communication_channel: {
-                type: 'email',
-                address: studentData.email,
-                skip_confirmation: true
-            }
-        };
-
+        // 2. Create new user in Canvas LMS
         const createUserRes = await fetch(`${CANVAS_URL}/api/v1/accounts/1/users`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${TOKEN}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(userPayload)
+            headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user: { name: studentData.name, short_name: studentData.name },
+                pseudonym: { unique_id: studentData.email, password, send_confirmation: false },
+                communication_channel: { type: 'email', address: studentData.email, skip_confirmation: true },
+            }),
         });
 
         if (!createUserRes.ok) {
@@ -101,127 +105,117 @@ export async function provisionCanvasUser(studentData: {
             throw new Error('Failed to create Canvas User');
         }
 
-        const newUser = await createUserRes.json() as { id: number };
+        const newUser = (await createUserRes.json()) as { id: number };
         canvasUserId = newUser.id.toString();
     }
 
-    // 3. Enroll User in Course (This handles both new and existing users)
-    const enrollPayload = {
-        enrollment: {
-            user_id: canvasUserId,
-            type: 'StudentEnrollment',
-            enrollment_state: 'active',
-            notify: false
-        }
-    };
+    // 3. Determine the section prefix from hardcoded class rules
+    const sectionPrefix = getSectionPrefix(studentData.student_class);
 
-    const enrollRes = await fetch(`${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/enrollments`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${TOKEN}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(enrollPayload)
-    });
+    // 4. Find or create a numbered section and enroll the user into it
+    let assignedSectionId: string | null = null;
+    let assignedSectionName: string | null = null;
+    let enrollmentId = 'unknown';
+
+    // A. Fetch all existing sections for the course with student counts
+    const sectionsRes = await fetch(
+        `${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/sections?include[]=total_students&per_page=100`,
+        { headers: { Authorization: `Bearer ${TOKEN}` } }
+    );
+    const allSections = (await sectionsRes.json()) as { id: number; name: string; total_students: number }[];
+
+    // Filter to only sections matching this prefix, sorted numerically (e.g. lower primary-1, lower primary-2)
+    const relevantSections = Array.isArray(allSections)
+        ? allSections
+              .filter((s) => s.name.toLowerCase().startsWith(sectionPrefix))
+              .sort((a, b) => {
+                  const getNum = (name: string) => {
+                      const match = name.match(/-(\d+)$/);
+                      return match ? parseInt(match[1]) : 0;
+                  };
+                  return getNum(a.name) - getNum(b.name);
+              })
+        : [];
+
+    let targetSectionId: number | null = null;
+    let targetSectionName: string | null = null;
+
+    // B. Find first section with room (< 22 students)
+    for (const section of relevantSections) {
+        if (section.total_students < 22) {
+            targetSectionId = section.id;
+            targetSectionName = section.name;
+            break;
+        }
+    }
+
+    // C. All existing sections full (or none exist) — create a new numbered one
+    if (!targetSectionId) {
+        const nextNum = relevantSections.length + 1;
+        // e.g. "lower primary-1", "primary-1", "upper primary-1", "other-1"
+        const newSectionName = `${sectionPrefix}-${nextNum}`;
+
+        console.log(`[Canvas] Creating new section: "${newSectionName}"`);
+        const createRes = await fetch(
+            `${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/sections`,
+            {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ course_section: { name: newSectionName } }),
+            }
+        );
+
+        if (!createRes.ok) {
+            const err = await createRes.text();
+            console.error('Canvas Section Creation Error:', err);
+            throw new Error('Failed to create Canvas section');
+        }
+
+        const newSection = (await createRes.json()) as { id: number };
+        targetSectionId = newSection.id;
+        targetSectionName = newSectionName;
+    }
+
+    // D. Enroll user directly into the section (gives full course access)
+    console.log(`[Canvas] Enrolling user ${canvasUserId} into section "${targetSectionName}" (id: ${targetSectionId})`);
+    const enrollRes = await fetch(
+        `${CANVAS_URL}/api/v1/sections/${targetSectionId}/enrollments`,
+        {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                enrollment: {
+                    user_id: canvasUserId,
+                    type: 'StudentEnrollment',
+                    enrollment_state: 'active',
+                    notify: false,
+                },
+            }),
+        }
+    );
 
     if (!enrollRes.ok) {
         const err = await enrollRes.text();
-        console.error('Canvas Enrollment Error:', err);
-        // If they are already enrolled, Canvas might return an error - we should check if it's just a "already enrolled" conflict
         if (!err.includes('already enrolled') && !err.includes('Conflict')) {
-            throw new Error('Failed to enroll user in Canvas course');
+            console.error('Canvas Section Enrollment Error:', err);
+            throw new Error('Failed to enroll user in Canvas section');
         }
+        console.log(`[Canvas] User already in section "${targetSectionName}", continuing.`);
+    } else {
+        const enrollment = (await enrollRes.json()) as { id: number };
+        enrollmentId = enrollment?.id?.toString() || 'enrolled';
     }
 
-    const enrollment = await enrollRes.json() as { id: number };
-
-    let assignedSectionName: string | null = null;
-    let assignedSectionId: string | null = null;
-
-    // 4. Dynamic Section Assignment (if class data is present)
-    if (studentData.student_class && studentData.course_groups && studentData.course_groups.length > 0) {
-        try {
-            // Find which section prefix the student belongs to
-            const targetSectionTemplate = studentData.course_groups.find(g =>
-                g.classes.includes(studentData.student_class!)
-            );
-
-            if (targetSectionTemplate) {
-                const sectionNamePrefix = targetSectionTemplate.name;
-
-                // A. Fetch existing sections with student counts
-                const sectionsRes = await fetch(`${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/sections?include[]=total_students`, {
-                    headers: { 'Authorization': `Bearer ${TOKEN}` }
-                });
-                const sections = await sectionsRes.json() as { id: number; name: string; total_students: number }[];
-
-                if (Array.isArray(sections)) {
-                    const relevantSections = sections.filter((s) => s.name.startsWith(sectionNamePrefix))
-                        .sort((a, b) => {
-                            const getNum = (name: string) => {
-                                const parts = name.split('-');
-                                return parseInt(parts[parts.length - 1] || '0');
-                            };
-                            return getNum(a.name) - getNum(b.name);
-                        });
-
-                    let targetId = null;
-                    let targetName = null;
-
-                    // B. Find a section with < 22 students
-                    for (const section of relevantSections) {
-                        if (section.total_students < 22) {
-                            targetId = section.id;
-                            targetName = section.name;
-                            break;
-                        }
-                    }
-
-                    // C. Create new section if none available or all full
-                    if (!targetId) {
-                        const nextNum = relevantSections.length + 1;
-                        const newSectionName = `${sectionNamePrefix}-${nextNum}`;
-                        const createSectionRes = await fetch(`${CANVAS_URL}/api/v1/courses/${studentData.canvas_course_id}/sections`, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ course_section: { name: newSectionName } })
-                        });
-                        const newSection = await createSectionRes.json() as { id: number };
-                        targetId = newSection.id;
-                        targetName = newSectionName;
-                    }
-
-                    // D. Enroll User in Section (Enrollment in section automatically provides course access)
-                    if (targetId) {
-                        await fetch(`${CANVAS_URL}/api/v1/sections/${targetId}/enrollments`, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                enrollment: {
-                                    user_id: canvasUserId,
-                                    type: 'StudentEnrollment',
-                                    enrollment_state: 'active',
-                                    notify: false
-                                }
-                            })
-                        });
-                        assignedSectionId = targetId.toString();
-                        assignedSectionName = targetName;
-                    }
-                }
-            }
-        } catch (sectionError) {
-            console.error('Canvas Section Assignment Error (Non-blocking):', sectionError);
-        }
-    }
+    assignedSectionId = targetSectionId.toString();
+    assignedSectionName = targetSectionName;
 
     return {
         canvas_user_id: canvasUserId,
-        canvas_enrollment_id: enrollment?.id?.toString() || 'existing',
+        canvas_enrollment_id: enrollmentId,
         canvas_section_id: assignedSectionId,
         canvas_section_name: assignedSectionName,
         login_id: studentData.email,
-        password: password,
-        lms_url: CANVAS_URL || '',
+        password,
+        lms_url: CANVAS_URL,
     };
 }

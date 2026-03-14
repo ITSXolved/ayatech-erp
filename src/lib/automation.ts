@@ -53,13 +53,12 @@ export async function processApplicationAutomation(applicationId: string) {
     const canvasCourseId = (course as { canvas_course_id?: string } | null)?.canvas_course_id;
 
     try {
-        // 3. Provision Canvas user & enroll in course
+        // 3. Provision Canvas user & enroll in section
         const credentials = await provisionCanvasUser({
             name: fullApp.student_name,
             email: fullApp.email,
             canvas_course_id: canvasCourseId || '',
             student_class: (fullApp as { class?: string }).class,
-            course_groups: (course as { course_groups?: any[] })?.course_groups || []
         });
 
         // 4. Store LMS mapping with credentials
