@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Script from 'next/script'
 import { lookupReferrer, saveApplicationDraft } from './actions'
-import { createRazorpayOrder, verifyRazorpayPayment } from './razorpay-actions'
+import { createRazorpayOrder, verifyRazorpayPayment, bypassPaymentForTest } from './razorpay-actions'
 import { Loader2, CheckCircle2 } from 'lucide-react'
 
 // Simple debounce
@@ -159,6 +159,26 @@ export default function ApplicationForm({
 
         setSaveStatus('saving')
         setErrorMessage('')
+
+        // ⚠️ TEST MODE: Bypass Razorpay payment for flow testing
+        const TEST_MODE = true
+
+        if (TEST_MODE) {
+            try {
+                const result = await bypassPaymentForTest(applicationId)
+                if (result.error) {
+                    setErrorMessage(result.error)
+                } else {
+                    alert('✅ TEST MODE: Payment skipped. Application marked as enrolled!')
+                    window.location.href = '/apply?success=true'
+                }
+            } catch (err) {
+                console.error("Test mode error:", err)
+                setErrorMessage("Test mode failed. Is the server action working?")
+            }
+            setSaveStatus('idle')
+            return
+        }
 
         const { orderId, amount, key, error } = await createRazorpayOrder(applicationId)
 

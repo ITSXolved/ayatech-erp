@@ -62,6 +62,39 @@ export async function createRazorpayOrder(applicationId: string) {
     }
 }
 
+// ⚠️ TEST-ONLY: Bypasses payment, directly marks as enrolled & triggers automation
+export async function bypassPaymentForTest(applicationId: string) {
+    const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
+    const supabaseAdmin = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    try {
+        const mockPaymentId = `test_pay_${Date.now()}`
+        const mockOrderId = `test_order_${Date.now()}`
+
+        await supabaseAdmin.from('payments').insert([{
+            application_id: applicationId,
+            razorpay_order_id: mockOrderId,
+            razorpay_payment_id: mockPaymentId,
+            amount: 1, // ₹1 dummy amount
+            status: 'Successful'
+        }])
+
+        await supabaseAdmin.from('applications')
+            .update({ status: 'Enrolled' })
+            .eq('id', applicationId)
+
+        const { processApplicationAutomation } = await import('@/lib/automation')
+        await processApplicationAutomation(applicationId)
+
+        return { success: true }
+    } catch (err) {
+        console.error('Test bypass error:', err)
+        return { error: 'Test bypass failed' }
+    }
+}
+
 import crypto from 'crypto'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 

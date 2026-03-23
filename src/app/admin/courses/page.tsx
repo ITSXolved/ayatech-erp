@@ -148,7 +148,6 @@ export default async function AdminCoursesPage() {
                                                                             assigned_manager_ids: course.staff?.filter((s: any) => s.role === 'course_manager').map((s: any) => s.user.id) || [],
                                                                             assigned_mentor_ids: course.staff?.filter((s: any) => s.role === 'mentor').map((s: any) => s.user.id) || [],
                                                                             canvas_course_id: course.canvas_course_id,
-                                                                            course_groups: course.course_groups || [],
                                                                             applicable_classes: null,
                                                                             class_group_name: null
                                                                         }}
