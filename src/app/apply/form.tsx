@@ -161,7 +161,7 @@ export default function ApplicationForm({
         setErrorMessage('')
 
         // ⚠️ TEST MODE: Bypass Razorpay payment for flow testing
-        const TEST_MODE = true
+        const TEST_MODE = false
 
         if (TEST_MODE) {
             try {
