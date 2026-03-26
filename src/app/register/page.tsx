@@ -202,9 +202,18 @@ export default async function RegisterPage({
                         </div>
                     )}
 
-                    <p className="text-center mt-8" style={{ color: '#4a5568', fontSize: '12px' }}>
-                        © {new Date().getFullYear()} Ayatech. All rights reserved.
-                    </p>
+                    <div className="text-center mt-8" style={{ color: '#8892b0', fontSize: '12px' }}>
+                        <p className="mb-1"><strong>AYADI CLOUDVERSITY LLP</strong></p>
+                        <p className="mb-1">Door No. 63/2243-L, Orbitz Complex, Jafarkhan Colony Road, Mavoor Road, Calicut Beach, Kozhikode, Kerala, India - 673032</p>
+                        <p className="mb-2">Email: ayatectechnicalschool@gmail.com | Phone: 090379 85004</p>
+                        <div className="flex justify-center gap-3 mb-2">
+                            <a href="https://ayatech.org/privacy-policy" target="_blank" className="hover:text-white transition-colors">Privacy Policy</a>
+                            <a href="https://ayatech.org/terms-and-conditions" target="_blank" className="hover:text-white transition-colors">Terms of Use</a>
+                            <a href="https://ayatech.org/refund-policy" target="_blank" className="hover:text-white transition-colors">Refund Policy</a>
+                            <a href="https://ayatech.org/shipping-policy" target="_blank" className="hover:text-white transition-colors">Shipping Policy</a>
+                        </div>
+                        <p style={{ color: '#4a5568' }}>© {new Date().getFullYear()} Ayatech. All rights reserved.</p>
+                    </div>
                 </div>
             </div>
         </div>

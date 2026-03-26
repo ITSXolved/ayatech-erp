@@ -4,8 +4,8 @@ import Razorpay from 'razorpay'
 import { createClient } from '@/lib/supabase/server'
 
 const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SPnQwzaNxPG8nf',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || 'm5vHNd1Z6EN6oCFv8I9XUaVk'
+    key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SQdSBMmgL1mZZa',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || 'Sew2homjpULowkPhqxOsSS47'
 })
 
 export async function createRazorpayOrder(applicationId: string) {
@@ -54,7 +54,7 @@ export async function createRazorpayOrder(applicationId: string) {
             success: true,
             orderId: order.id,
             amount: options.amount,
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || 'rzp_live_SPnQwzaNxPG8nf' // Send publishable key to client
+            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || 'rzp_live_SQdSBMmgL1mZZa' // Send publishable key to client
         }
     } catch (err: unknown) {
         console.error('Razorpay Error:', err)
@@ -131,25 +131,25 @@ export async function verifyRazorpayPayment(
             .from('payments')
             .select('id')
             .eq('razorpay_payment_id', paymentId)
-            .single()
+            .maybeSingle()
 
         if (existingPayment) {
             return { success: true, status: 'already_processed' }
         }
 
-        // 1. Insert Payment Record
+        // 1. Upsert Payment Record (handles pre-created Pending records)
         const { error: paymentError } = await supabaseAdmin
             .from('payments')
-            .insert([{
+            .upsert({
                 application_id: applicationId,
                 razorpay_order_id: orderId,
                 razorpay_payment_id: paymentId,
-                amount: amount / 100, // stored in INR, option amount is in paise
+                amount: amount / 100,
                 status: 'Successful'
-            }])
+            }, { onConflict: 'razorpay_order_id' })
 
         if (paymentError) {
-            console.error('Verify Payment Insert Error:', paymentError)
+            console.error('Verify Payment Upsert Error:', paymentError)
             return { error: 'Failed to record payment.' }
         }
 

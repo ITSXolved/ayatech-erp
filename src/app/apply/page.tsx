@@ -15,10 +15,11 @@ async function getActiveCourses() {
 export default async function ApplicationContainer({
     searchParams
 }: {
-    searchParams: { id?: string }
+    searchParams: { id?: string; course?: string }
 }) {
     const params = await searchParams
     const initialId = params.id
+    const initialCourseName = params.course
     const rawCourses = await getActiveCourses()
 
     let initialData = null
@@ -55,11 +56,23 @@ export default async function ApplicationContainer({
                     courses={rawCourses}
                     initialData={initialData}
                     initialId={initialId}
+                    initialCourseName={initialCourseName}
                 />
 
-                <p className="mt-8 text-center text-sm" style={{ color: '#4a5568' }}>
-                    © {new Date().getFullYear()} Ayatech. All rights reserved.
-                </p>
+                <div className="mt-8 text-center" style={{ color: '#8892b0', fontSize: '13px' }}>
+                    <p className="mb-2"><strong>AYADI CLOUDVERSITY LLP</strong></p>
+                    <p className="mb-1">Door No. 63/2243-L, Orbitz Complex, Jafarkhan Colony Road, Mavoor Road, Calicut Beach, Kozhikode, Kerala, India - 673032</p>
+                    <p className="mb-4">Email: ayatectechnicalschool@gmail.com | Phone: 090379 85004</p>
+                    <div className="flex justify-center gap-4 text-xs">
+                        <a href="https://ayatech.org/privacy-policy" target="_blank" className="hover:text-white transition-colors">Privacy Policy</a>
+                        <a href="https://ayatech.org/terms-and-conditions" target="_blank" className="hover:text-white transition-colors">Terms of Use</a>
+                        <a href="https://ayatech.org/refund-policy" target="_blank" className="hover:text-white transition-colors">Refund Policy</a>
+                        <a href="https://ayatech.org/shipping-policy" target="_blank" className="hover:text-white transition-colors">Shipping Policy</a>
+                    </div>
+                    <p className="mt-6 text-sm" style={{ color: '#4a5568' }}>
+                        © {new Date().getFullYear()} Ayatech. All rights reserved.
+                    </p>
+                </div>
             </div>
         </div>
     )
