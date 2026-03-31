@@ -11,13 +11,16 @@ const razorpay = new Razorpay({
 export async function createRazorpayOrder(applicationId: string) {
     const supabase = await createClient()
 
-    // 1. Fetch application and related course fee
+    // 1. Fetch application and related course fee + student info
     const { data: application, error: appError } = await supabase
         .from('applications')
         .select(`
       id,
       course_id,
-      courses ( fee )
+      student_name,
+      email,
+      phone,
+      courses ( fee, name )
     `)
         .eq('id', applicationId)
         .single()
@@ -29,32 +32,45 @@ export async function createRazorpayOrder(applicationId: string) {
 
     // Next.js array normalization for joins
     const course = Array.isArray(application.courses) ? application.courses[0] : application.courses
-    const amountToCharge = course?.fee
+    const amountToCharge = (course as { fee?: number; name?: string } | null)?.fee
+    const courseName = (course as { fee?: number; name?: string } | null)?.name
 
     if (!amountToCharge) {
         return { error: 'Invalid course fee.' }
     }
 
     try {
-        // 2. Generate Razorpay Order
-        // Amount is in smallest currency unit (paise for INR, cents for USD)
-        // Assuming INR for Razorpay default
-        const options = {
+        // 2. Create Razorpay Payment Link (hosted on Razorpay's domain — NO whitelist issues)
+        const paymentLinkOptions = {
             amount: Math.round(Number(amountToCharge) * 100),
             currency: 'INR',
-            receipt: `app_${applicationId.replace(/-/g, '').substring(0, 30)}`,
+            accept_partial: false,
+            reference_id: applicationId,
+            description: `Course Enrollment: ${courseName || 'Course'}`,
+            customer: {
+                name: application.student_name || 'Student',
+                email: application.email || 'support@ayatech.org',
+                contact: application.phone || '0000000000'
+            },
+            notify: {
+                sms: true,
+                email: true
+            },
+            reminder_enable: true,
             notes: {
                 application_id: applicationId
-            }
+            },
+            callback_url: `https://erp.ayatech.org/payment-success?application_id=${applicationId}`,
+            callback_method: 'get'
         }
 
-        const order = await razorpay.orders.create(options)
+        const paymentLink = await (razorpay as any).paymentLink.create(paymentLinkOptions)
 
         return {
             success: true,
-            orderId: order.id,
-            amount: options.amount,
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || 'rzp_live_SQdSBMmgL1mZZa' // Send publishable key to client
+            payment_link: paymentLink.short_url,
+            orderId: paymentLink.id,
+            amount: paymentLinkOptions.amount
         }
     } catch (err: unknown) {
         console.error('Razorpay Error:', err)
@@ -116,7 +132,7 @@ export async function verifyRazorpayPayment(
     try {
         const body = orderId + "|" + paymentId;
         const expectedSignature = crypto
-            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'm5vHNd1Z6EN6oCFv8I9XUaVk')
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'Sew2homjpULowkPhqxOsSS47')
             .update(body)
             .digest('hex');
 
