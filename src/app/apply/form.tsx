@@ -162,12 +162,22 @@ export default function ApplicationForm({ courses, initialData, initialId, initi
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">Student Class</label>
-                            <select required value={formData.class} onChange={e => setFormData({ ...formData, class: e.target.value, course_id: '' })} className="w-full bg-gray-50 text-gray-900 px-4 py-3.5 rounded-2xl border border-gray-200 outline-none focus:border-[#c2a055] focus:ring-4 focus:ring-[#c2a055]/5 transition-all cursor-pointer">
-                                <option value="">Select Class</option>
-                                <option value="Graduate">Graduate</option>
-                                <option value="Engineer">Engineer</option>
+                            <select 
+                                required 
+                                value={formData.class} 
+                                onChange={e => setFormData({ ...formData, class: e.target.value })} 
+                                disabled={!formData.course_id}
+                                className="w-full bg-gray-50 text-gray-900 px-4 py-3.5 rounded-2xl border border-gray-200 outline-none focus:border-[#c2a055] focus:ring-4 focus:ring-[#c2a055]/5 transition-all cursor-pointer disabled:opacity-50"
+                            >
+                                <option value="">{formData.course_id ? 'Select Class' : 'Choose Course First'}</option>
+                                {formData.course_id && (
+                                    [...new Set(courses.find(c => c.id === formData.course_id)?.course_groups?.flatMap(g => g.classes) || [])].map(cls => (
+                                        <option key={cls} value={cls}>{cls}</option>
+                                    ))
+                                )}
                             </select>
                         </div>
+
                     </div>
 
                     <div className="space-y-4">

@@ -6,10 +6,11 @@ export async function getActiveCourses() {
     const supabase = await createClient()
     const { data, error } = await supabase
         .from('courses')
-        .select('id, name, fee, category')
+        .select('id, name, fee, category, course_groups')
         .eq('is_active', true)
         .is('deleted_at', null)
         .order('name')
+
 
     if (error) {
         console.error('Error fetching courses:', error)
