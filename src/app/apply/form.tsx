@@ -179,21 +179,26 @@ export default function ApplicationForm({ courses, initialData, initialId, initi
             <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
 
             <div className="w-full max-w-2xl mx-auto" style={{ borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
-                {/* Card Header */}
-                <div style={{ background: '#06101e', padding: '28px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h2 style={{ color: '#e6f1ff', fontSize: '24px', fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>
-                                Course Application
-                            </h2>
-                            <p style={{ color: '#8892b0', fontSize: '14px', marginTop: '6px' }}>
-                                Fill out your details to enroll. Progress saves automatically.
-                            </p>
+                {/* Card Header with Logo */}
+                <div style={{ background: '#0a192f', padding: '32px', borderBottom: '1px solid rgba(100, 255, 218, 0.1)' }}>
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div className="flex items-center gap-4">
+                            {/* The Blue "A" Logo */}
+                            <div style={{ width: '45px', height: '45px', backgroundColor: '#0056D2', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 16px rgba(0, 86, 210, 0.3)' }}>
+                                <span style={{ color: '#fff', fontSize: '24px', fontWeight: 800, fontFamily: 'sans-serif' }}>A</span>
+                            </div>
+                            <div>
+                                <h2 style={{ color: '#e6f1ff', fontSize: '22px', fontWeight: 700, margin: 0, letterSpacing: '-0.02em', lineHeight: '1.2' }}>
+                                    AyaTech <span style={{ color: '#64ffda' }}>ERP</span>
+                                </h2>
+                                <p style={{ color: '#8892b0', fontSize: '12px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
+                                    Global Academy Enrollment
+                                </p>
+                            </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                            {saveStatus === 'saving' && <span className="flex items-center gap-1" style={{ fontSize: '12px', color: '#8892b0' }}><Loader2 className="h-3 w-3 animate-spin" /> Saving...</span>}
-                            {saveStatus === 'saved' && <span className="flex items-center gap-1" style={{ fontSize: '12px', color: '#64ffda' }}><CheckCircle2 className="h-3 w-3" /> Saved</span>}
-                            {saveStatus === 'error' && <span style={{ fontSize: '12px', color: '#ff6b6b', fontWeight: 600 }}>Save failed</span>}
+                            {saveStatus === 'saving' && <span className="flex items-center gap-1" style={{ fontSize: '11px', color: '#8892b0' }}><Loader2 className="h-3 w-3 animate-spin" /> Auto-saving...</span>}
+                            {saveStatus === 'saved' && <span className="flex items-center gap-1" style={{ fontSize: '11px', color: '#64ffda' }}><CheckCircle2 className="h-3 w-3" /> Progress Saved</span>}
                         </div>
                     </div>
                 </div>
