@@ -22,6 +22,7 @@ export default async function ApplicationContainer({
     const initialCourseName = params.course
     const rawCourses = await getActiveCourses()
 
+
     let initialData = null
     if (initialId) {
         initialData = await getApplication(initialId)
@@ -33,13 +34,15 @@ export default async function ApplicationContainer({
             <div className="w-full py-4 px-6" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.05)', backdropFilter: 'blur(10px)' }}>
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#c2a055', boxShadow: '0 4px 12px rgba(194,160,85,0.2)' }}>
-                            <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                            </svg>
+                        <div className="w-10 h-10 rounded-xl bg-[#0056D2] flex items-center justify-center shadow-lg" style={{ boxShadow: "0 8px 16px -4px rgba(0, 86, 210, 0.3)" }}>
+                            <span className="font-bold text-white text-xl">A</span>
                         </div>
-                        <span className="font-bold text-xl tracking-tight" style={{ color: '#1a202c' }}>AyaTech <span style={{ color: '#c2a055' }}>Portal</span></span>
+                        <div>
+                            <div className="font-bold text-lg leading-none tracking-tight" style={{ color: "#1F2432" }}>AyaTech</div>
+                            <div className="text-[9px] font-bold uppercase tracking-widest mt-1" style={{ color: "#c2a055" }}>Global Academy</div>
+                        </div>
                     </div>
+
                     <div className="hidden sm:block">
                         <span style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Student Enrollment 2025-26</span>
                     </div>

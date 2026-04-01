@@ -60,8 +60,9 @@ export async function createRazorpayOrder(applicationId: string) {
             notes: {
                 application_id: applicationId
             },
-            callback_url: `https://erp.ayatech.org/payment-success?application_id=${applicationId}`,
+            callback_url: `https://ayatech.org/payment-success?application_id=${applicationId}`,
             callback_method: 'get'
+
         }
 
         const paymentLink = await (razorpay as any).paymentLink.create(paymentLinkOptions)
