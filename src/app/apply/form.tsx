@@ -1,233 +1,397 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { createRazorpayOrder } from './razorpay-actions'
-import { saveApplicationDraft, lookupReferrer } from './actions'
-import { useDebounce } from '../../hooks/use-debounce'
-import { Loader2 } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import Script from 'next/script'
+import { lookupReferrer, saveApplicationDraft } from './actions'
+import { createRazorpayOrder, verifyRazorpayPayment } from './razorpay-actions'
+import { Loader2, CheckCircle2 } from 'lucide-react'
 
-interface Course {
-    id: string
-    name: string
-    fee: number
-    course_groups?: {
-        classes: string[]
-    }[]
+// Simple debounce
+function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value)
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedValue(value), delay)
+        return () => clearTimeout(timer)
+    }, [value, delay])
+    return debouncedValue
+}
+
+const inputStyle = {
+    width: '100%',
+    padding: '10px 14px',
+    fontSize: '14px',
+    borderRadius: '8px',
+    borderWidth: '1.5px',
+    borderStyle: 'solid' as const,
+    borderColor: '#233554',
+    backgroundColor: '#0a192f',
+    color: '#ccd6f6',
+    outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+}
+
+const inputFocusStyle = {
+    borderColor: '#4f46e5',
+    boxShadow: '0 0 0 3px rgba(79, 70, 229, 0.15)',
+}
+
+const labelStyle = {
+    display: 'block',
+    fontSize: '13px',
+    fontWeight: 600 as const,
+    color: '#ccd6f6',
+    marginBottom: '6px',
 }
 
 interface ApplicationFormProps {
-    courses: Course[]
+    courses: { id: string; name: string; fee: number }[]
     initialData?: any
     initialId?: string
     initialCourseName?: string
 }
 
 export default function ApplicationForm({ courses, initialData, initialId, initialCourseName }: ApplicationFormProps) {
-    const [isSubmitting, setIsSubmitting] = useState(false)
-    const [mentorLoading, setMentorLoading] = useState(false)
-    const [referrer, setReferrer] = useState<{ name: string; type: 'mentor' | 'course_manager' } | null>(null)
-    const [mentorError, setMentorError] = useState<string | null>(null)
-    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-    const [errorMessage, setErrorMessage] = useState<string | null>(null)
-    const [applicationId, setApplicationId] = useState<string | null>(null)
-
     const [formData, setFormData] = useState({
         student_name: initialData?.student_name || '',
         email: initialData?.email || '',
         phone: initialData?.phone || '',
+        state: initialData?.state || '',
         class: initialData?.class || '',
         course_id: initialData?.course_id || courses.find(c => c.name === initialCourseName)?.id || '',
         mentor_code: initialData?.mentors?.mentor_code || initialData?.course_managers?.mentor_code || ''
     })
 
-    useEffect(() => {
-        if (initialId) setApplicationId(initialId)
-    }, [initialId])
+    const [referrer, setReferrer] = useState<{ id: string; name: string; type: 'mentor' | 'manager' } | null>(null)
+    const [mentorLoading, setMentorLoading] = useState(false)
+    const [mentorError, setMentorError] = useState('')
 
-    const debouncedFormData = useDebounce(formData, 1000)
-    useEffect(() => {
-        if (debouncedFormData.student_name || debouncedFormData.email || debouncedFormData.course_id) {
-            handleSaveDraft()
-        }
-    }, [debouncedFormData])
+    const [applicationId, setApplicationId] = useState<string | null>(initialId || null)
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+    const [errorMessage, setErrorMessage] = useState('')
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
-    const handleSaveDraft = async () => {
-        setSaveStatus('saving')
-        try {
-            const result = await saveApplicationDraft(applicationId, {
-                ...formData,
-                state: '' // Add default or dynamic state if needed
-            })
-            if (result.success && result.id) {
-                setApplicationId(result.id)
-                setSaveStatus('saved')
+    const [focusedField, setFocusedField] = useState<string | null>(null)
+
+    // Debounce the entire form for saving
+    const debouncedForm = useDebounce(formData, 1000)
+
+    // Track if initial load is done to prevent empty autosave
+    const isInitialMount = useRef(true)
+
+    // Referrer Lookup Effect
+    useEffect(() => {
+        async function checkReferrer() {
+            if (formData.mentor_code.length === 4) {
+                setMentorLoading(true)
+                setMentorError('')
+                setReferrer(null)
+                const result = await lookupReferrer(formData.mentor_code)
+                if (result) {
+                    setReferrer(result)
+                } else {
+                    setMentorError('Referrer not found.')
+                }
+                setMentorLoading(false)
             } else {
-                setSaveStatus('error')
+                setReferrer(null)
+                setMentorError('')
             }
-        } catch (error) {
-            setSaveStatus('error')
         }
-    }
+        checkReferrer()
+    }, [formData.mentor_code])
 
-    const checkMentor = async (code: string) => {
-        if (!code) return
-        setMentorLoading(true)
-        try {
-            const data = await lookupReferrer(code)
-            if (data) setReferrer(data as any)
-            else setMentorError('Invalid code')
-        } catch (err) {
-            setReferrer(null)
-        } finally { setMentorLoading(false) }
-    }
+    // Autosave Effect
+    useEffect(() => {
+        if (isInitialMount.current) {
+            isInitialMount.current = false
+            return
+        }
 
-    const debouncedMentorCode = useDebounce(formData.mentor_code, 500)
-    useEffect(() => { if (debouncedMentorCode) checkMentor(debouncedMentorCode) }, [debouncedMentorCode])
+        if (!debouncedForm.email && !debouncedForm.student_name && !debouncedForm.phone) return
+
+        async function triggerSave() {
+            setSaveStatus('saving')
+            setErrorMessage('')
+
+            const payload = {
+                student_name: debouncedForm.student_name,
+                email: debouncedForm.email,
+                phone: debouncedForm.phone,
+                state: debouncedForm.state,
+                class: debouncedForm.class,
+                course_id: debouncedForm.course_id,
+                mentor_id: referrer?.type === 'mentor' ? referrer.id : undefined,
+                course_manager_id: referrer?.type === 'manager' ? referrer.id : undefined
+            }
+
+            const res = await saveApplicationDraft(applicationId, payload)
+
+            if (res.error) {
+                setSaveStatus('error')
+                setErrorMessage(res.error)
+            } else if (res.success && res.id) {
+                if (!applicationId) setApplicationId(res.id)
+                setSaveStatus('saved')
+            }
+        }
+
+        triggerSave()
+    }, [debouncedForm, referrer]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+        setSaveStatus('idle')
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        setErrorMessage(null)
 
-        if (!formData.student_name || !formData.email || !formData.course_id) {
-            setErrorMessage("Fill all fields.")
+        if (!applicationId) {
+            setErrorMessage("Please wait for your draft to save before proceeding.")
             return
         }
 
         setIsSubmitting(true)
+        setSaveStatus('saving')
+        setErrorMessage('')
+
         try {
-            const selectedCourse = courses.find(c => c.id === formData.course_id)
-            if (!selectedCourse) return
+            const orderResult = await createRazorpayOrder(applicationId)
 
-            // 1. Create Application and Order
-            const draftResult = await saveApplicationDraft(applicationId, {
-                ...formData,
-                state: ''
-            })
-            const appId = (draftResult as any)?.id
-            if (!appId) throw new Error("Failed to save draft.")
-            setApplicationId(appId)
-            
-            const orderResult = await createRazorpayOrder(appId)
-
-            if (orderResult.error) throw new Error(orderResult.error)
-
-            // Redirect to Razorpay's hosted payment page (no domain whitelist issues)
-            if (orderResult.payment_link) {
-                window.location.href = orderResult.payment_link
-            } else {
-                throw new Error('Payment link not generated.')
+            if (orderResult.error || !orderResult.payment_link) {
+                throw new Error(orderResult.error || 'Failed to initialize payment gateway link.')
             }
+
+            // Redirect to Razorpay Hosted Link (Bypasses whitelisting issues)
+            window.location.href = orderResult.payment_link;
         } catch (err: any) {
             console.error(err)
-            setErrorMessage(err.message || "Initialization failed.")
+            setErrorMessage(err.message || 'Initialization failed.')
             setIsSubmitting(false)
+            setSaveStatus('idle')
         }
     }
 
+    const selectedCourse = courses.find(c => c.id === formData.course_id)
+
     return (
-        <div className="w-full max-w-2xl mx-auto p-4">
-            <div className="bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-10 border border-gray-100 overflow-hidden relative">
-                {/* Decorative element */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#c2a055]/5 rounded-bl-full -mr-16 -mt-16 pointer-events-none" />
-                
-                <h2 className="text-3xl font-black mb-2" style={{ color: '#111827', letterSpacing: '-0.02em' }}>Technical School Enrollment</h2>
-                <p className="font-medium mb-10" style={{ color: '#c2a055' }}>
-                    <span className="inline-block w-2 h-2 rounded-full bg-[#c2a055] mr-2 mb-0.5" />
-                    Secure ₹1 Trial Enrollment
-                </p>
+        <>
+            <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
 
-                {errorMessage && (
-                    <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl mb-8 flex items-center gap-3 animate-shake font-medium">
-                        <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                        {errorMessage}
+            <div className="w-full max-w-2xl mx-auto" style={{ borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                {/* Card Header */}
+                <div style={{ background: '#06101e', padding: '28px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h2 style={{ color: '#e6f1ff', fontSize: '24px', fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>
+                                Course Application
+                            </h2>
+                            <p style={{ color: '#8892b0', fontSize: '14px', marginTop: '6px' }}>
+                                Fill out your details to enroll. Progress saves automatically.
+                            </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                            {saveStatus === 'saving' && <span className="flex items-center gap-1" style={{ fontSize: '12px', color: '#8892b0' }}><Loader2 className="h-3 w-3 animate-spin" /> Saving...</span>}
+                            {saveStatus === 'saved' && <span className="flex items-center gap-1" style={{ fontSize: '12px', color: '#64ffda' }}><CheckCircle2 className="h-3 w-3" /> Saved</span>}
+                            {saveStatus === 'error' && <span style={{ fontSize: '12px', color: '#ff6b6b', fontWeight: 600 }}>Save failed</span>}
+                        </div>
                     </div>
-                )}
+                </div>
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">Full Name</label>
-                            <input required placeholder="eg. John Doe" value={formData.student_name} onChange={e => setFormData({ ...formData, student_name: e.target.value })} className="w-full bg-gray-50 text-gray-900 px-4 py-3.5 rounded-2xl border border-gray-200 outline-none focus:border-[#c2a055] focus:ring-4 focus:ring-[#c2a055]/5 transition-all" />
+                {/* Card Body */}
+                <div style={{ background: '#112240', padding: '32px' }}>
+                    {errorMessage && (
+                        <div style={{ marginBottom: '24px', padding: '12px 16px', borderRadius: '8px', fontSize: '14px', backgroundColor: 'rgba(255, 107, 107, 0.1)', border: '1px solid rgba(255, 107, 107, 0.2)', color: '#ff6b6b' }}>
+                            {errorMessage}
                         </div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">Email Address</label>
-                            <input required type="email" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full bg-gray-50 text-gray-900 px-4 py-3.5 rounded-2xl border border-gray-200 outline-none focus:border-[#c2a055] focus:ring-4 focus:ring-[#c2a055]/5 transition-all" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">Phone Number</label>
-                            <input required type="tel" placeholder="+91 98765 43210" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full bg-gray-50 text-gray-900 px-4 py-3.5 rounded-2xl border border-gray-200 outline-none focus:border-[#c2a055] focus:ring-4 focus:ring-[#c2a055]/5 transition-all" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">Student Class</label>
-                            <select 
-                                required 
-                                value={formData.class} 
-                                onChange={e => setFormData({ ...formData, class: e.target.value })} 
-                                disabled={!formData.course_id}
-                                className="w-full bg-gray-50 text-gray-900 px-4 py-3.5 rounded-2xl border border-gray-200 outline-none focus:border-[#c2a055] focus:ring-4 focus:ring-[#c2a055]/5 transition-all cursor-pointer disabled:opacity-50"
-                            >
-                                <option value="">{formData.course_id ? 'Select Class' : 'Choose Course First'}</option>
-                                {formData.course_id && (
-                                    [...new Set(courses.find(c => c.id === formData.course_id)?.course_groups?.flatMap(g => g.classes) || [])].map(cls => (
-                                        <option key={cls} value={cls}>{cls}</option>
-                                    ))
-                                )}
-                            </select>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Name & Email */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label style={labelStyle}>Full Name <span style={{ color: '#ff6b6b' }}>*</span></label>
+                                <input
+                                    name="student_name"
+                                    value={formData.student_name}
+                                    onChange={handleInputChange}
+                                    onFocus={() => setFocusedField('student_name')}
+                                    onBlur={() => setFocusedField(null)}
+                                    required
+                                    placeholder="John Doe"
+                                    style={{ ...inputStyle, ...(focusedField === 'student_name' ? inputFocusStyle : {}) }}
+                                />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Email Address <span style={{ color: '#ff6b6b' }}>*</span></label>
+                                <input
+                                    name="email"
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={handleInputChange}
+                                    onFocus={() => setFocusedField('email')}
+                                    onBlur={() => setFocusedField(null)}
+                                    required
+                                    placeholder="john@example.com"
+                                    style={{ ...inputStyle, ...(focusedField === 'email' ? inputFocusStyle : {}) }}
+                                />
+                            </div>
                         </div>
 
-                    </div>
-
-                    <div className="space-y-4">
-                        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 ml-1">Choose Your Program</label>
-                        <div className="grid grid-cols-1 gap-3">
-                            {courses.map(course => (
-                                <div 
-                                    key={course.id} 
-                                    onClick={() => setFormData({ ...formData, course_id: course.id })} 
-                                    className={`p-5 rounded-2xl border-2 cursor-pointer flex justify-between items-center transition-all group ${
-                                        formData.course_id === course.id 
-                                        ? 'border-[#c2a055] bg-[#c2a055]/5 shadow-sm' 
-                                        : 'border-gray-100 bg-white hover:border-gray-200 hover:bg-gray-50'
-                                    }`}
+                        {/* Phone & Class */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label style={labelStyle}>Phone Number <span style={{ color: '#ff6b6b' }}>*</span></label>
+                                <input
+                                    name="phone"
+                                    type="tel"
+                                    value={formData.phone}
+                                    onChange={handleInputChange}
+                                    onFocus={() => setFocusedField('phone')}
+                                    onBlur={() => setFocusedField(null)}
+                                    required
+                                    placeholder="+91 98765 43210"
+                                    style={{ ...inputStyle, ...(focusedField === 'phone' ? inputFocusStyle : {}) }}
+                                />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Student Class <span style={{ color: '#ff6b6b' }}>*</span></label>
+                                <select
+                                    name="class"
+                                    value={formData.class}
+                                    onChange={handleInputChange}
+                                    onFocus={() => setFocusedField('class')}
+                                    onBlur={() => setFocusedField(null)}
+                                    required
+                                    style={{ ...inputStyle, ...(focusedField === 'class' ? inputFocusStyle : {}), cursor: 'pointer', appearance: 'none' as const, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238892b0'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px', paddingRight: '40px' }}
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                            formData.course_id === course.id ? 'border-[#c2a055] bg-[#c2a055]' : 'border-gray-200'
-                                        }`}>
-                                            {formData.course_id === course.id && <div className="w-2 h-2 rounded-full bg-white" />}
-                                        </div>
-                                        <span className={`font-bold transition-colors ${formData.course_id === course.id ? 'text-gray-900' : 'text-gray-600'}`}>{course.name}</span>
-                                    </div>
-                                    <span className="font-extrabold text-lg" style={{ color: formData.course_id === course.id ? '#c2a055' : '#9ca3af' }}>₹{course.fee}</span>
-                                </div>
-                            ))}
+                                    <option value="">Select Class...</option>
+                                    <option value="1st">1st Grade</option>
+                                    <option value="2nd">2nd Grade</option>
+                                    <option value="3rd">3rd Grade</option>
+                                    <option value="4th">4th Grade</option>
+                                    <option value="5th">5th Grade</option>
+                                    <option value="6th">6th Grade</option>
+                                    <option value="7th">7th Grade</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
 
-                    <button 
-                        disabled={isSubmitting} 
-                        type="submit" 
-                        className="w-full py-5 text-white font-extrabold rounded-2xl transition-all shadow-xl hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70 disabled:hover:scale-100 flex items-center justify-center gap-3"
-                        style={{ 
-                            backgroundColor: '#c2a055', 
-                            boxShadow: '0 10px 25px rgba(194,160,85,0.35)',
-                            fontSize: '1.1rem'
-                        }}
-                    >
-                        {isSubmitting ? (
-                            <>
-                                <Loader2 className="w-6 h-6 animate-spin" />
-                                <span>Contacting Gateway...</span>
-                            </>
-                        ) : (
-                            <span>Confirm & Proceed to Payment</span>
+                        {/* State & Course */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label style={labelStyle}>State / Region</label>
+                                <input
+                                    name="state"
+                                    value={formData.state}
+                                    onChange={handleInputChange}
+                                    onFocus={() => setFocusedField('state')}
+                                    onBlur={() => setFocusedField(null)}
+                                    placeholder="e.g. Kerala"
+                                    style={{ ...inputStyle, ...(focusedField === 'state' ? inputFocusStyle : {}) }}
+                                />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Desired Course <span style={{ color: '#ff6b6b' }}>*</span></label>
+                                <select
+                                    name="course_id"
+                                    value={formData.course_id}
+                                    onChange={handleInputChange}
+                                    onFocus={() => setFocusedField('course_id')}
+                                    onBlur={() => setFocusedField(null)}
+                                    required
+                                    style={{ ...inputStyle, ...(focusedField === 'course_id' ? inputFocusStyle : {}), cursor: 'pointer', appearance: 'none' as const, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238892b0'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px', paddingRight: '40px' }}
+                                >
+                                    <option value="">Select Course...</option>
+                                    {courses.map(course => (
+                                        <option key={course.id} value={course.id}>
+                                            {course.name} — ₹{course.fee}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {selectedCourse && (
+                            <div className="mt-2 flex items-center gap-2" style={{ fontSize: '13px', color: '#64ffda' }}>
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Course fee: <strong>₹{selectedCourse.fee}</strong></span>
+                            </div>
                         )}
-                    </button>
-                </form>
+
+                        {/* Mentor Code */}
+                        <div style={{ padding: '20px', borderRadius: '10px', backgroundColor: 'rgba(6, 16, 30, 0.6)', border: '1px solid #233554' }}>
+                            <label style={{ ...labelStyle, marginBottom: '4px' }}>Mentor Reference Code (Optional)</label>
+                            <p style={{ fontSize: '12px', color: '#8892b0', marginBottom: '14px' }}>
+                                If you were referred by a mentor, enter their 4-digit code.
+                            </p>
+                            <div className="flex gap-4 items-center">
+                                <input
+                                    name="mentor_code"
+                                    maxLength={4}
+                                    value={formData.mentor_code}
+                                    onChange={handleInputChange}
+                                    onFocus={() => setFocusedField('mentor_code')}
+                                    onBlur={() => setFocusedField(null)}
+                                    placeholder="0000"
+                                    style={{
+                                        ...inputStyle,
+                                        ...(focusedField === 'mentor_code' ? inputFocusStyle : {}),
+                                        width: '120px',
+                                        textAlign: 'center' as const,
+                                        fontSize: '18px',
+                                        letterSpacing: '0.25em',
+                                        fontFamily: 'monospace',
+                                        fontWeight: 700,
+                                    }}
+                                />
+                                <div className="flex-1">
+                                    {mentorLoading && <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#8892b0' }} />}
+                                    {referrer && (
+                                        <div className="flex items-center gap-2" style={{ fontSize: '14px', fontWeight: 500, color: '#64ffda' }}>
+                                            <CheckCircle2 className="w-4 h-4" /> Found: {referrer.name} ({referrer.type === 'mentor' ? 'Mentor' : 'Course Manager'})
+                                        </div>
+                                    )}
+                                    {mentorError && <div style={{ fontSize: '14px', fontWeight: 500, color: '#ff6b6b' }}>{mentorError}</div>}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Submit Button */}
+                        <button
+                            type="submit"
+                            disabled={isSubmitting || saveStatus === 'saving'}
+                            style={{
+                                width: '100%',
+                                padding: '16px',
+                                fontSize: '16px',
+                                fontWeight: 700,
+                                borderRadius: '10px',
+                                border: 'none',
+                                cursor: isSubmitting || saveStatus === 'saving' ? 'not-allowed' : 'pointer',
+                                background: isSubmitting || saveStatus === 'saving' ? '#233554' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                                color: isSubmitting || saveStatus === 'saving' ? '#8892b0' : '#ffffff',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 4px 14px rgba(79, 70, 229, 0.4)',
+                                letterSpacing: '0.02em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    <span>Contacting Gateway...</span>
+                                </>
+                            ) : (
+                                <span>Confirm & Proceed to Payment</span>
+                            )}
+                        </button>
+                    </form>
+                </div>
             </div>
-        </div>
+        </>
     )
 }
