@@ -265,14 +265,27 @@ export default function ApplicationForm({ courses, initialData, initialId, initi
                                     required
                                     style={{ ...inputStyle, ...(focusedField === 'class' ? inputFocusStyle : {}), cursor: 'pointer', appearance: 'none' as const, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238892b0'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px', paddingRight: '40px' }}
                                 >
-                                    <option value="">Select Class...</option>
-                                    <option value="1st">1st Grade</option>
-                                    <option value="2nd">2nd Grade</option>
-                                    <option value="3rd">3rd Grade</option>
-                                    <option value="4th">4th Grade</option>
-                                    <option value="5th">5th Grade</option>
-                                    <option value="6th">6th Grade</option>
-                                    <option value="7th">7th Grade</option>
+                                    <option value="">Select Level...</option>
+                                    <optgroup label="School Level">
+                                        <option value="1st">1st Grade</option>
+                                        <option value="2nd">2nd Grade</option>
+                                        <option value="3rd">3rd Grade</option>
+                                        <option value="4th">4th Grade</option>
+                                        <option value="5th">5th Grade</option>
+                                        <option value="6th">6th Grade</option>
+                                        <option value="7th">7th Grade</option>
+                                        <option value="8th">8th Grade</option>
+                                        <option value="9th">9th Grade</option>
+                                        <option value="10th">10th Grade</option>
+                                    </optgroup>
+                                    <optgroup label="Higher Secondary">
+                                        <option value="11th">11th Grade</option>
+                                        <option value="12th">12th Grade</option>
+                                    </optgroup>
+                                    <optgroup label="Advanced">
+                                        <option value="Graduate">Graduate</option>
+                                        <option value="Post Graduate">Post Graduate</option>
+                                    </optgroup>
                                 </select>
                             </div>
                         </div>
