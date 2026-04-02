@@ -179,26 +179,51 @@ export default function ApplicationForm({ courses, initialData, initialId, initi
             <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
 
             <div className="w-full max-w-2xl mx-auto" style={{ borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
-                {/* Card Header with Logo */}
-                <div style={{ background: '#0a192f', padding: '32px', borderBottom: '1px solid rgba(100, 255, 218, 0.1)' }}>
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                {/* Premium Gold & White Header */}
+                <div style={{ 
+                    background: 'rgba(10, 25, 47, 0.95)', 
+                    padding: '32px 24px', 
+                    borderBottom: '1px solid rgba(194, 160, 85, 0.2)',
+                    backdropFilter: 'blur(10px)'
+                }}>
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
                         <div className="flex items-center gap-4">
-                            {/* The Blue "A" Logo */}
-                            <div style={{ width: '45px', height: '45px', backgroundColor: '#0056D2', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 16px rgba(0, 86, 210, 0.3)' }}>
-                                <span style={{ color: '#fff', fontSize: '24px', fontWeight: 800, fontFamily: 'sans-serif' }}>A</span>
+                            {/* The Premium Gold "A" Logo */}
+                            <div style={{ 
+                                width: '52px', 
+                                height: '52px', 
+                                background: 'linear-gradient(135deg, #c2a055 0%, #ecd491 100%)', 
+                                borderRadius: '14px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                boxShadow: '0 8px 24px rgba(194, 160, 85, 0.4)',
+                                border: '2px solid rgba(255, 255, 255, 0.1)'
+                            }}>
+                                <img src="/logo.png" alt="AyaTech Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                             </div>
-                            <div>
-                                <h2 style={{ color: '#e6f1ff', fontSize: '22px', fontWeight: 700, margin: 0, letterSpacing: '-0.02em', lineHeight: '1.2' }}>
-                                    AyaTech <span style={{ color: '#64ffda' }}>ERP</span>
+                            <div className="text-center sm:text-left">
+                                <h2 style={{ color: '#ffffff', fontSize: '26px', fontWeight: 800, margin: 0, letterSpacing: '-0.03em', lineHeight: '1.1' }}>
+                                    AyaTech <span style={{ color: '#c2a055' }}>Academy</span>
                                 </h2>
-                                <p style={{ color: '#8892b0', fontSize: '12px', margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
-                                    Global Academy Enrollment
+                                <p style={{ color: '#8892b0', fontSize: '11px', margin: '4px 0 0 0', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 700 }}>
+                                    Technical Excellence Portal
                                 </p>
                             </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                            {saveStatus === 'saving' && <span className="flex items-center gap-1" style={{ fontSize: '11px', color: '#8892b0' }}><Loader2 className="h-3 w-3 animate-spin" /> Auto-saving...</span>}
-                            {saveStatus === 'saved' && <span className="flex items-center gap-1" style={{ fontSize: '11px', color: '#64ffda' }}><CheckCircle2 className="h-3 w-3" /> Progress Saved</span>}
+                        <div className="flex flex-col items-center sm:items-end gap-2">
+                            {saveStatus === 'saving' && (
+                                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+                                    <Loader2 className="h-3 w-3 animate-spin text-[#c2a055]" />
+                                    <span style={{ fontSize: '10px', color: '#8892b0', fontWeight: 600 }}>SYNCING...</span>
+                                </div>
+                            )}
+                            {saveStatus === 'saved' && (
+                                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#c2a055]/10 border border-[#c2a055]/20">
+                                    <CheckCircle2 className="h-3 w-3 text-[#c2a055]" />
+                                    <span style={{ fontSize: '10px', color: '#c2a055', fontWeight: 700 }}>READY TO ENROL</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
