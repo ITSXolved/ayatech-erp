@@ -200,7 +200,7 @@ export default function ApplicationForm({ courses, initialData, initialId, initi
                                 boxShadow: '0 8px 24px rgba(194, 160, 85, 0.4)',
                                 border: '2px solid rgba(255, 255, 255, 0.1)'
                             }}>
-                                <img src="/logo_v3.png" alt="AyaTech Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                                <img src="/logo_transparent.png" alt="AyaTech Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                             </div>
                             <div className="text-center sm:text-left">
                                 <h2 style={{ color: '#ffffff', fontSize: '26px', fontWeight: 800, margin: 0, letterSpacing: '-0.03em', lineHeight: '1.1' }}>

@@ -210,12 +210,13 @@ export default async function ManagerApplicationsPage() {
                                                     {app.status === 'Draft' && (
                                                         <CopyApplicationLink applicationId={app.id} />
                                                     )}
-                                                    {app.lms && app.phone && (
+                                                    {app.phone && (
                                                         <WhatsAppShareButton
                                                             phone={app.phone}
+                                                            studentName={app.student_name}
                                                             courseName={app.course?.name}
-                                                            loginId={app.lms.login_id}
-                                                            password={app.lms.password}
+                                                            loginId={app.lms?.login_id}
+                                                            password={app.lms?.password}
                                                         />
                                                     )}
                                                 </div>

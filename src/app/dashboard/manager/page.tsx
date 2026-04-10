@@ -32,7 +32,7 @@ export default async function ManagerDashboardPage() {
 
     const courseIds = assignedCourses.map((c: { id: string }) => c.id)
 
-    const { data: applications } = await supabase
+    const { data: applications, error: appError } = await adminDb
         .from('applications')
         .select(`
       id, student_name, email, phone, status, created_at, promoter_id, mentor_id,
@@ -42,6 +42,10 @@ export default async function ManagerDashboardPage() {
     `)
         .in('course_id', courseIds)
         .order('created_at', { ascending: false })
+
+    if (appError) {
+        console.error('[Manager Dashboard] Error fetching applications:', appError)
+    }
 
     const rawApps = applications || []
 
@@ -220,12 +224,13 @@ export default async function ManagerDashboardPage() {
                                                     </DropdownMenu>
                                                 )}
 
-                                                {app.lms_mappings && (Array.isArray(app.lms_mappings) ? app.lms_mappings.length > 0 : true) && app.phone && (
+                                                {app.phone && (
                                                     <WhatsAppShareButton
                                                         phone={app.phone}
+                                                        studentName={app.student_name}
                                                         courseName={(course as { name: string })?.name}
-                                                        loginId={(Array.isArray(app.lms_mappings) ? app.lms_mappings[0] : app.lms_mappings).login_id}
-                                                        password={(Array.isArray(app.lms_mappings) ? app.lms_mappings[0] : app.lms_mappings).password}
+                                                        loginId={(Array.isArray(app.lms_mappings) ? app.lms_mappings[0] : app.lms_mappings)?.login_id}
+                                                        password={(Array.isArray(app.lms_mappings) ? app.lms_mappings[0] : app.lms_mappings)?.password}
                                                     />
                                                 )}
                                             </TableCell>

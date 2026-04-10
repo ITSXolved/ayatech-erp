@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 
 interface Course {
@@ -47,8 +48,9 @@ export async function enforceManagerGuard() {
         redirect('/dashboard?error=ManagerProfileMissing')
     }
 
-    // Fetch courses assigned to this user via junction table
-    const { data: assignments } = await supabase
+    // Fetch courses assigned to this user via junction table (admin client to bypass RLS)
+    const adminDb = createAdminClient()
+    const { data: assignments, error: assignErr } = await adminDb
         .from('course_staff')
         .select(`
             course_id,
@@ -56,6 +58,10 @@ export async function enforceManagerGuard() {
         `)
         .eq('user_id', user.id)
         .eq('role', 'course_manager')
+
+    if (assignErr) {
+        console.error('[ManagerGuard] Error fetching course_staff:', assignErr)
+    }
 
     const assignedCourses = (assignments?.map(a => Array.isArray(a.courses) ? a.courses[0] : a.courses).filter(Boolean) || []) as Course[]
 

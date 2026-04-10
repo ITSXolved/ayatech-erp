@@ -2,6 +2,7 @@
 
 import Razorpay from 'razorpay'
 import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SQdSBMmgL1mZZa',
@@ -40,8 +41,18 @@ export async function createRazorpayOrder(applicationId: string) {
     }
 
     try {
+        // Format phone with country code (Razorpay requires +91 prefix to skip contact screen)
+        const rawPhone = (application.phone || '').replace(/[^0-9]/g, '')
+        const formattedPhone = rawPhone.length === 10 ? `+91${rawPhone}` : `+${rawPhone}`
+
+        // Determine callback URL based on current host
+        const headersList = await headers()
+        const host = headersList.get('host') || 'ayatech.org'
+        const protocol = host.includes('localhost') ? 'http' : 'https'
+        const baseUrl = `${protocol}://${host}`
+
         // 2. Create Razorpay Payment Link (hosted on Razorpay's domain — NO whitelist issues)
-        const paymentLinkOptions = {
+        const paymentLinkOptions: Record<string, unknown> = {
             amount: Math.round(Number(amountToCharge) * 100),
             currency: 'INR',
             accept_partial: false,
@@ -50,19 +61,18 @@ export async function createRazorpayOrder(applicationId: string) {
             customer: {
                 name: application.student_name || 'Student',
                 email: application.email || 'support@ayatech.org',
-                contact: application.phone || '0000000000'
+                contact: formattedPhone
             },
             notify: {
-                sms: true,
-                email: true
+                sms: false,
+                email: false
             },
-            reminder_enable: true,
+            reminder_enable: false,
             notes: {
                 application_id: applicationId
             },
-            callback_url: `https://ayatech.org/payment-success?application_id=${applicationId}`,
+            callback_url: `${baseUrl}/payment-success?application_id=${applicationId}`,
             callback_method: 'get'
-
         }
 
         const paymentLink = await (razorpay as any).paymentLink.create(paymentLinkOptions)

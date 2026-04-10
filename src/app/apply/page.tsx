@@ -1,12 +1,15 @@
 import ApplicationForm from './form'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+
+export const dynamic = 'force-dynamic'
 
 async function getActiveCourses() {
-    const supabase = await createClient()
-    const { data } = await supabase
+    const supabase = createAdminClient()
+    const { data, error } = await supabase
         .from('courses')
         .select('id, name, fee')
         .eq('is_active', true)
+    if (error) console.error('Failed to fetch courses:', error.message)
     return data || []
 }
 
