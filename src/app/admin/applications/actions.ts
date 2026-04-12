@@ -105,3 +105,23 @@ export async function adminSyncApplicationPayment(applicationId: string) {
         console.error('Exception syncing application payment:', err)
     }
 }
+
+export async function updateSecretKeywords(applicationId: string, keywords: string) {
+    await enforceAdminGuard()
+    const supabase = await createClient()
+
+    try {
+        const { error } = await supabase
+            .from('applications')
+            .update({ secret_keywords: keywords.trim() || null })
+            .eq('id', applicationId)
+
+        if (error) {
+            console.error('Error updating secret keywords:', error)
+        }
+    } catch (err) {
+        console.error('Exception updating secret keywords:', err)
+    }
+
+    revalidatePath('/admin/applications')
+}

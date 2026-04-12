@@ -166,3 +166,42 @@ export async function updateLeadStatus(applicationId: string, newStatus: string)
 
     revalidatePath('/dashboard/manager')
 }
+
+export async function updateSecretKeywords(applicationId: string, keywords: string) {
+    const { assignedCourses } = await enforceManagerGuard()
+    const supabase = await createClient()
+
+    try {
+        // Authorization check - ensure this application belongs to a managed course
+        const { data: application, error: appError } = await supabase
+            .from('applications')
+            .select('course_id')
+            .eq('id', applicationId)
+            .single()
+
+        if (appError || !application) {
+            console.error('Error fetching application for keyword update:', appError)
+            return
+        }
+
+        const courseIds = assignedCourses.map((c: any) => c.id)
+        if (!courseIds.includes(application.course_id)) {
+            console.error('Unauthorized. This application belongs to a course you do not manage.')
+            return
+        }
+
+        const { error } = await supabase
+            .from('applications')
+            .update({ secret_keywords: keywords.trim() || null })
+            .eq('id', applicationId)
+
+        if (error) {
+            console.error('Error updating secret keywords:', error)
+        }
+    } catch (err) {
+        console.error('Exception updating secret keywords:', err)
+    }
+
+    revalidatePath('/dashboard/manager')
+    revalidatePath('/dashboard/manager/applications')
+}

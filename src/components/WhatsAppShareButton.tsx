@@ -8,9 +8,10 @@ interface WhatsAppShareButtonProps {
     courseName?: string
     loginId?: string
     password?: string
+    secretKeywords?: string
 }
 
-export default function WhatsAppShareButton({ phone, studentName, courseName, loginId, password }: WhatsAppShareButtonProps) {
+export default function WhatsAppShareButton({ phone, studentName, courseName, loginId, password, secretKeywords }: WhatsAppShareButtonProps) {
     const hasCredentials = loginId && password
 
     const handleShare = () => {
@@ -19,7 +20,8 @@ export default function WhatsAppShareButton({ phone, studentName, courseName, lo
         if (hasCredentials) {
             // LMS credentials message
             const lmsUrl = 'https://lms.ayatech.org';
-            message = `Welcome to *Ayatech*!\nYour login credentials for *${courseName || 'your course'}* are ready.\n\n*Learning Portal:* ${lmsUrl}\n*Username:* ${loginId}\n*Password:* ${password}\n\nPlease login and change your password immediately.\nHappy Learning!`;
+            const keywordsLine = secretKeywords ? `\n\n🔑 *Your Secret Keywords:* ${secretKeywords}` : '';
+            message = `Welcome to *Ayatech*!\nYour login credentials for *${courseName || 'your course'}* are ready.\n\n*Learning Portal:* ${lmsUrl}\n*Username:* ${loginId}\n*Password:* ${password}\n\nPlease login and change your password immediately.${keywordsLine}\nHappy Learning!`;
         } else {
             // Follow-up message
             const name = studentName ? `Hi *${studentName}*! ` : 'Hi! '

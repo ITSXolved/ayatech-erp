@@ -11,9 +11,10 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { updateLeadStatus, assignLeadToStaff } from './actions'
+import { updateLeadStatus, assignLeadToStaff, updateSecretKeywords } from './actions'
 import { ActionMenuItem } from './action-menu-item'
 import WhatsAppShareButton from '@/components/WhatsAppShareButton'
+import SecretKeywordsEditor from '@/components/SecretKeywordsEditor'
 
 export default async function ManagerDashboardPage() {
     const { assignedCourses } = await enforceManagerGuard()
@@ -35,7 +36,7 @@ export default async function ManagerDashboardPage() {
     const { data: applications, error: appError } = await adminDb
         .from('applications')
         .select(`
-      id, student_name, email, phone, status, created_at, promoter_id, mentor_id,
+      id, student_name, email, phone, status, created_at, promoter_id, mentor_id, secret_keywords,
       courses ( name ),
       lead_assignments ( promoter_id, mentor_id ),
       lms_mappings ( login_id, password )
@@ -137,13 +138,14 @@ export default async function ManagerDashboardPage() {
                                     <TableHead>Course Target</TableHead>
                                     <TableHead>Staff Assignment</TableHead>
                                     <TableHead>Lead Status</TableHead>
+                                    <TableHead>Secret Keywords</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {rawApps.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No applicants found for your courses.</TableCell>
+                                        <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">No applicants found for your courses.</TableCell>
                                     </TableRow>
                                 ) : rawApps.map((app) => {
                                     const course = Array.isArray(app.courses) ? app.courses[0] : app.courses
@@ -175,6 +177,18 @@ export default async function ManagerDashboardPage() {
                                                     }`}>
                                                     {app.status}
                                                 </span>
+                                            </TableCell>
+                                            {/* Secret Keywords */}
+                                            <TableCell>
+                                                {['Joined', 'Completed', 'Enrolled', 'Paid'].includes(app.status) ? (
+                                                    <SecretKeywordsEditor
+                                                        applicationId={app.id}
+                                                        initialKeywords={(app as any).secret_keywords || ''}
+                                                        saveAction={updateSecretKeywords}
+                                                    />
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground italic">—</span>
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-right space-x-2">
                                                 <DropdownMenu>
@@ -231,6 +245,7 @@ export default async function ManagerDashboardPage() {
                                                         courseName={(course as { name: string })?.name}
                                                         loginId={(Array.isArray(app.lms_mappings) ? app.lms_mappings[0] : app.lms_mappings)?.login_id}
                                                         password={(Array.isArray(app.lms_mappings) ? app.lms_mappings[0] : app.lms_mappings)?.password}
+                                                        secretKeywords={(app as any).secret_keywords || undefined}
                                                     />
                                                 )}
                                             </TableCell>

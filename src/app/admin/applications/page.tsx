@@ -1,10 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { updateApplicationStatus, deleteApplication, adminSyncApplicationPayment } from './actions'
+import { updateApplicationStatus, deleteApplication, adminSyncApplicationPayment, updateSecretKeywords } from './actions'
 import { formatDate } from '@/lib/utils'
 import WhatsAppShareButton from '@/components/WhatsAppShareButton'
 import CopyApplicationLink from '@/components/CopyApplicationLink'
+import SecretKeywordsEditor from '@/components/SecretKeywordsEditor'
 
 interface CourseInfo {
     name: string
@@ -45,6 +46,7 @@ interface ParsedApp {
     mentorUser: MentorUser | null
     payment: PaymentInfo | null
     lms: LMSInfo | null
+    secret_keywords: string | null
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -74,7 +76,7 @@ export default async function AdminApplicationsPage() {
     const { data: applications } = await supabase
         .from('applications')
         .select(`
-            id, student_name, email, phone, state, status, class, created_at,
+            id, student_name, email, phone, state, status, class, created_at, secret_keywords,
             courses ( name, fee ),
             mentors ( mentor_code, users:user_id ( full_name ) ),
             payments ( amount, status, razorpay_payment_id ),
@@ -102,6 +104,7 @@ export default async function AdminApplicationsPage() {
             mentorUser,
             payment,
             lms: (Array.isArray(app.lms_mappings) ? app.lms_mappings[0] : app.lms_mappings) as LMSInfo | null,
+            secret_keywords: (app as any).secret_keywords || null,
         }
     })
 
@@ -151,13 +154,14 @@ export default async function AdminApplicationsPage() {
                                     <TableHead>Payment</TableHead>
                                     <TableHead>Mentor</TableHead>
                                     <TableHead>Date</TableHead>
+                                    <TableHead>Secret Keywords</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {apps.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
+                                        <TableCell colSpan={8} className="text-center text-muted-foreground h-24">
                                             No applications found.
                                         </TableCell>
                                     </TableRow>
@@ -229,6 +233,19 @@ export default async function AdminApplicationsPage() {
                                                 {formatDate(app.created_at)}
                                             </TableCell>
 
+                                            {/* Secret Keywords - only editable for paid/enrolled apps */}
+                                            <TableCell>
+                                                {(app.payment?.status === 'Captured' || app.payment?.status === 'Successful' || app.status === 'Enrolled' || app.status === 'Paid') ? (
+                                                    <SecretKeywordsEditor
+                                                        applicationId={app.id}
+                                                        initialKeywords={app.secret_keywords || ''}
+                                                        saveAction={updateSecretKeywords}
+                                                    />
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground italic">Fee not paid</span>
+                                                )}
+                                            </TableCell>
+
                                             {/* Actions */}
                                             <TableCell className="text-right">
                                                 <div className="flex flex-col gap-1 items-end">
@@ -279,6 +296,7 @@ export default async function AdminApplicationsPage() {
                                                             courseName={app.course?.name}
                                                             loginId={app.lms?.login_id}
                                                             password={app.lms?.password}
+                                                            secretKeywords={app.secret_keywords || undefined}
                                                         />
                                                     )}
                                                 </div>

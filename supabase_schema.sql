@@ -94,6 +94,7 @@ CREATE TABLE applications (
   mentor_id UUID REFERENCES mentors(id),
   promoter_id UUID REFERENCES promoters(id),
   status TEXT DEFAULT 'Draft', -- 'Draft', 'Payment Pending', 'Followed Up', 'Closed', 'Joined'
+  secret_keywords TEXT, -- Secret keywords added by admin/manager after fee payment
   deleted_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
