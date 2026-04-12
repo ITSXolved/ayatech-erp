@@ -8,7 +8,6 @@ interface SecretKeywordsEditorProps {
     initialKeywords: string
     saveAction: (applicationId: string, keywords: string) => Promise<void>
 }
-
 export default function SecretKeywordsEditor({ applicationId, initialKeywords, saveAction }: SecretKeywordsEditorProps) {
     const [isEditing, setIsEditing] = useState(false)
     const [keywords, setKeywords] = useState(initialKeywords || '')
