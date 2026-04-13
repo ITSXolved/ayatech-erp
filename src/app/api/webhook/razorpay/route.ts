@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
+// Allow this route to run up to 60 seconds on Vercel to handle LMS provisioning and emails
+export const maxDuration = 60;
+
 // Service Role client — bypasses RLS for webhook-triggered system updates
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,8 +21,9 @@ export async function POST(req: Request) {
         }
 
         // Verify Signature
+        const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || 'ayatech_tech_5001';
         const expectedSignature = crypto
-            .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET!)
+            .createHmac('sha256', webhookSecret)
             .update(bodyText)
             .digest('hex')
 

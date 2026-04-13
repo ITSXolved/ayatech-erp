@@ -31,8 +31,8 @@ export async function provisionCanvasUser(studentData: {
     canvas_course_id: string;
     student_class?: string;
 }): Promise<CanvasProvisioningResult> {
-    const CANVAS_URL = process.env.CANVAS_BASE_URL;
-    const TOKEN = process.env.CANVAS_API_TOKEN;
+    const CANVAS_URL = process.env.CANVAS_BASE_URL || 'https://lms.ayatech.org';
+    const TOKEN = process.env.CANVAS_API_TOKEN || 'XCcWZe6uyZ8mxHfxxDEC4xHy48X8cVETTMFkAnZ4PPYMxJVmruTMt9HzzM9AaBWF';
 
     if (!CANVAS_URL || !TOKEN) {
         throw new Error('Canvas credentials missing from environment.');

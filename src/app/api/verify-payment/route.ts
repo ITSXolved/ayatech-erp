@@ -1,8 +1,9 @@
-'use server'
-
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Razorpay from 'razorpay'
+
+// Allow this route to run up to 60 seconds on Vercel to handle LMS provisioning and emails
+export const maxDuration = 60;
 
 function getAdminClient() {
     return createClient(
@@ -60,10 +61,13 @@ export async function GET(req: Request) {
             return NextResponse.json({ success: true, status: 'automation_triggered', result })
         }
 
+        const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SQdSBMmgL1mZZa';
+        const keySecret = process.env.RAZORPAY_KEY_SECRET || 'Sew2homjpULowkPhqxOsSS47';
+
         // 3. Try to verify via razorpay_payment_id (if provided by callback)
         const razorpay = new Razorpay({
-            key_id: process.env.RAZORPAY_KEY_ID!,
-            key_secret: process.env.RAZORPAY_KEY_SECRET!
+            key_id: keyId,
+            key_secret: keySecret
         })
 
         if (razorpayPaymentId) {
@@ -84,7 +88,7 @@ export async function GET(req: Request) {
                 `https://api.razorpay.com/v1/payment_links?reference_id=${applicationId}`,
                 {
                     headers: {
-                        Authorization: `Basic ${Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString('base64')}`
+                        Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`
                     }
                 }
             )
@@ -111,7 +115,7 @@ export async function GET(req: Request) {
                     `https://api.razorpay.com/v1/payment_links/${razorpayPaymentLinkId}`,
                     {
                         headers: {
-                            Authorization: `Basic ${Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString('base64')}`
+                            Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`
                         }
                     }
                 )
@@ -139,7 +143,7 @@ export async function GET(req: Request) {
 }
 
 async function recordAndProvision(
-    supabaseAdmin: ReturnType<typeof createClient>,
+    supabaseAdmin: any,
     applicationId: string,
     paymentId: string,
     orderId: string,
