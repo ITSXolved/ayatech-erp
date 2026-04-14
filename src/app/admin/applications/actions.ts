@@ -125,3 +125,23 @@ export async function updateSecretKeywords(applicationId: string, keywords: stri
 
     revalidatePath('/admin/applications')
 }
+
+export async function updateApplicationPhone(applicationId: string, phone: string) {
+    await enforceAdminGuard()
+    const supabase = await createClient()
+
+    try {
+        const { error } = await supabase
+            .from('applications')
+            .update({ phone: phone.trim() || null })
+            .eq('id', applicationId)
+
+        if (error) {
+            console.error('Error updating mobile number:', error)
+        }
+    } catch (err) {
+        console.error('Exception updating mobile number:', err)
+    }
+
+    revalidatePath('/admin/applications')
+}

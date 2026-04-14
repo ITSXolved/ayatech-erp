@@ -205,3 +205,42 @@ export async function updateSecretKeywords(applicationId: string, keywords: stri
     revalidatePath('/dashboard/manager')
     revalidatePath('/dashboard/manager/applications')
 }
+
+export async function updateApplicationPhone(applicationId: string, phone: string) {
+    const { assignedCourses } = await enforceManagerGuard()
+    const supabase = await createClient()
+
+    try {
+        // Authorization check - ensure this application belongs to a managed course
+        const { data: application, error: appError } = await supabase
+            .from('applications')
+            .select('course_id')
+            .eq('id', applicationId)
+            .single()
+
+        if (appError || !application) {
+            console.error('Error fetching application for mobile update:', appError)
+            return
+        }
+
+        const courseIds = assignedCourses.map((c: any) => c.id)
+        if (!courseIds.includes(application.course_id)) {
+            console.error('Unauthorized. This application belongs to a course you do not manage.')
+            return
+        }
+
+        const { error } = await supabase
+            .from('applications')
+            .update({ phone: phone.trim() || null })
+            .eq('id', applicationId)
+
+        if (error) {
+            console.error('Error updating mobile number:', error)
+        }
+    } catch (err) {
+        console.error('Exception updating mobile number:', err)
+    }
+
+    revalidatePath('/dashboard/manager')
+    revalidatePath('/dashboard/manager/applications')
+}

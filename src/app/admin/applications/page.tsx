@@ -1,11 +1,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { updateApplicationStatus, deleteApplication, adminSyncApplicationPayment, updateSecretKeywords } from './actions'
+import SecretKeywordsEditor from '@/components/SecretKeywordsEditor'
+import MobileNumberEditor from '@/components/MobileNumberEditor'
+import { updateApplicationStatus, deleteApplication, adminSyncApplicationPayment, updateSecretKeywords, updateApplicationPhone } from './actions'
 import { formatDate } from '@/lib/utils'
 import WhatsAppShareButton from '@/components/WhatsAppShareButton'
 import CopyApplicationLink from '@/components/CopyApplicationLink'
-import SecretKeywordsEditor from '@/components/SecretKeywordsEditor'
+// Allow this route to run up to 60 seconds on Vercel to handle LMS provisioning and emails via Server Actions
+export const maxDuration = 60;
 
 interface CourseInfo {
     name: string
@@ -172,10 +175,21 @@ export default async function AdminApplicationsPage() {
                                             <TableCell>
                                                 <div className="font-medium">{app.student_name || 'Unnamed'}</div>
                                                 <div className="text-xs text-muted-foreground">{app.email}</div>
-                                                <div className="flex gap-2">
-                                                    {app.phone && <div className="text-xs text-muted-foreground">{app.phone}</div>}
+                                                <div className="flex flex-col gap-1 mt-1">
+                                                    <MobileNumberEditor
+                                                        applicationId={app.id}
+                                                        initialPhone={app.phone || ''}
+                                                        saveAction={updateApplicationPhone}
+                                                    />
                                                     {app.class && <div className="text-xs font-semibold text-indigo-400">[{app.class}]</div>}
                                                 </div>
+                                                {app.lms && (
+                                                    <div className="mt-1 p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded border border-blue-100 dark:border-blue-900">
+                                                        <div className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-0.5">Canvas LMS</div>
+                                                        <div className="text-xs font-mono text-slate-700 dark:text-slate-300 truncate" title={app.lms.login_id}>U: {app.lms.login_id}</div>
+                                                        <div className="text-xs font-mono text-slate-700 dark:text-slate-300 truncate">P: {app.lms.password}</div>
+                                                    </div>
+                                                )}
                                             </TableCell>
 
                                             {/* Course */}

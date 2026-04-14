@@ -6,7 +6,8 @@ import { formatDate } from '@/lib/utils'
 import WhatsAppShareButton from '@/components/WhatsAppShareButton'
 import CopyApplicationLink from '@/components/CopyApplicationLink'
 import SecretKeywordsEditor from '@/components/SecretKeywordsEditor'
-import { updateSecretKeywords } from '../actions'
+import MobileNumberEditor from '@/components/MobileNumberEditor'
+import { updateSecretKeywords, updateApplicationPhone } from '../actions'
 
 interface CourseInfo { name: string; fee: number }
 interface MentorUser { full_name: string }
@@ -151,7 +152,18 @@ export default async function ManagerApplicationsPage() {
                                             <TableCell>
                                                 <div className="font-medium">{app.student_name || 'Unnamed'}</div>
                                                 <div className="text-xs text-muted-foreground">{app.email}</div>
-                                                {app.phone && <div className="text-xs text-muted-foreground">{app.phone}</div>}
+                                                <MobileNumberEditor
+                                                    applicationId={app.id}
+                                                    initialPhone={app.phone || ''}
+                                                    saveAction={updateApplicationPhone}
+                                                />
+                                                {app.lms && (
+                                                    <div className="mt-1 p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded border border-blue-100 dark:border-blue-900">
+                                                        <div className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-0.5">Canvas LMS</div>
+                                                        <div className="text-xs font-mono text-slate-700 dark:text-slate-300 truncate" title={app.lms.login_id}>U: {app.lms.login_id}</div>
+                                                        <div className="text-xs font-mono text-slate-700 dark:text-slate-300 truncate">P: {app.lms.password}</div>
+                                                    </div>
+                                                )}
                                             </TableCell>
 
                                             {/* Course */}
