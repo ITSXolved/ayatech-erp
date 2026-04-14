@@ -7,6 +7,7 @@ import WhatsAppShareButton from '@/components/WhatsAppShareButton'
 import CopyApplicationLink from '@/components/CopyApplicationLink'
 import SecretKeywordsEditor from '@/components/SecretKeywordsEditor'
 import MobileNumberEditor from '@/components/MobileNumberEditor'
+import SearchApplications from '@/components/SearchApplications'
 import { updateSecretKeywords, updateApplicationPhone } from '../actions'
 
 interface CourseInfo { name: string; fee: number }
@@ -38,7 +39,10 @@ const PAYMENT_STYLES: Record<string, string> = {
     Failed: 'bg-red-100 text-red-800',
 }
 
-export default async function ManagerApplicationsPage() {
+export default async function ManagerApplicationsPage(props: { searchParams?: Promise<{ search?: string }> }) {
+    const searchParams = props.searchParams ? await props.searchParams : {}
+    const search = searchParams?.search || ''
+
     const { assignedCourses } = await enforceManagerGuard()
     const adminDb = createAdminClient()
 
@@ -54,7 +58,7 @@ export default async function ManagerApplicationsPage() {
     }
 
     // Fetch applications for assigned courses only, using admin client to bypass RLS
-    const { data: applications } = await adminDb
+    let query = adminDb
         .from('applications')
         .select(`
             id, student_name, email, phone, status, created_at, secret_keywords,
@@ -65,7 +69,13 @@ export default async function ManagerApplicationsPage() {
         `)
         .in('course_id', courseIds)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false })
+
+    if (search) {
+        const safeSearch = search.replace(/,/g, ' ')
+        query = query.or(`student_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%`)
+    }
+
+    const { data: applications } = await query.order('created_at', { ascending: false })
 
     const apps: ParsedApp[] = (applications || []).map(app => {
         const course = (Array.isArray(app.courses) ? app.courses[0] : app.courses) as CourseInfo | null
@@ -119,9 +129,12 @@ export default async function ManagerApplicationsPage() {
 
             {/* Applications Table */}
             <Card className="shadow-sm">
-                <CardHeader>
-                    <CardTitle>Course Applications</CardTitle>
-                    <CardDescription>Applications for your assigned courses.</CardDescription>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <CardTitle>Course Applications</CardTitle>
+                        <CardDescription>Applications for your assigned courses.</CardDescription>
+                    </div>
+                    <SearchApplications />
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border overflow-x-auto">

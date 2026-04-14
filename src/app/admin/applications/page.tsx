@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button'
 import SecretKeywordsEditor from '@/components/SecretKeywordsEditor'
 import MobileNumberEditor from '@/components/MobileNumberEditor'
+import SearchApplications from '@/components/SearchApplications'
 import { updateApplicationStatus, deleteApplication, adminSyncApplicationPayment, updateSecretKeywords, updateApplicationPhone } from './actions'
 import { formatDate } from '@/lib/utils'
 import WhatsAppShareButton from '@/components/WhatsAppShareButton'
@@ -67,7 +68,10 @@ const PAYMENT_STYLES: Record<string, string> = {
     Failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
 }
 
-export default async function AdminApplicationsPage() {
+export default async function AdminApplicationsPage(props: { searchParams?: Promise<{ search?: string }> }) {
+    const searchParams = props.searchParams ? await props.searchParams : {}
+    const search = searchParams?.search || ''
+
     // We use the service_role key to bypass RLS on related tables like `payments` that might block non-admins
     const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
     const supabase = createSupabaseClient(
@@ -76,7 +80,7 @@ export default async function AdminApplicationsPage() {
     )
 
     // Fetch applications with course, mentor, and payment info
-    const { data: applications } = await supabase
+    let query = supabase
         .from('applications')
         .select(`
             id, student_name, email, phone, state, status, class, created_at, secret_keywords,
@@ -86,7 +90,13 @@ export default async function AdminApplicationsPage() {
             lms_mappings ( login_id, password )
         `)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false })
+
+    if (search) {
+        const safeSearch = search.replace(/,/g, ' ')
+        query = query.or(`student_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%,phone.ilike.%${safeSearch}%`)
+    }
+
+    const { data: applications } = await query.order('created_at', { ascending: false })
 
     const apps: ParsedApp[] = (applications || []).map(app => {
         const course = (Array.isArray(app.courses) ? app.courses[0] : app.courses) as CourseInfo | null
@@ -142,9 +152,12 @@ export default async function AdminApplicationsPage() {
 
             {/* Applications Table */}
             <Card className="shadow-sm">
-                <CardHeader>
-                    <CardTitle>All Applications</CardTitle>
-                    <CardDescription>View and manage course applications with payment information.</CardDescription>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <CardTitle>All Applications</CardTitle>
+                        <CardDescription>View and manage course applications with payment information.</CardDescription>
+                    </div>
+                    <SearchApplications />
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border overflow-x-auto">
