@@ -233,17 +233,13 @@ export default async function AdminApplicationsPage() {
                                                 {formatDate(app.created_at)}
                                             </TableCell>
 
-                                            {/* Secret Keywords - only editable for paid/enrolled apps */}
+                                            {/* Secret Keywords */}
                                             <TableCell>
-                                                {(app.payment?.status === 'Captured' || app.payment?.status === 'Successful' || app.status === 'Enrolled' || app.status === 'Paid') ? (
-                                                    <SecretKeywordsEditor
-                                                        applicationId={app.id}
-                                                        initialKeywords={app.secret_keywords || ''}
-                                                        saveAction={updateSecretKeywords}
-                                                    />
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground italic">Fee not paid</span>
-                                                )}
+                                                <SecretKeywordsEditor
+                                                    applicationId={app.id}
+                                                    initialKeywords={app.secret_keywords || ''}
+                                                    saveAction={updateSecretKeywords}
+                                                />
                                             </TableCell>
 
                                             {/* Actions */}
