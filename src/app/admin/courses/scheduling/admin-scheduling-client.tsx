@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { createAdminClassSchedule, updateAdminClassSchedule, deleteAdminClassSchedule, markAdminAttendance } from './actions'
+import { createAdminClassSchedule, updateAdminClassSchedule, deleteAdminClassSchedule, markAdminAttendance, getClassesForDate } from './actions'
 
 // --- Types ---
 type Course = { id: string; name: string }
@@ -20,7 +20,7 @@ type Schedule = {
     class_time: string; duration_minutes: number; hourly_rate: number; excluded_dates: string[]
 }
 
-type TodayClass = {
+type ClassForDate = {
     scheduleId: string; courseName: string; mentorName: string
     classTime: string; duration: number; hourlyRate: number
     attendance: 'pending' | 'present' | 'absent' | null
@@ -29,7 +29,7 @@ type TodayClass = {
 type Props = {
     schedules: Schedule[]; courses: Course[]; mentors: Mentor[]
     courseNameMap: Record<string, string>; mentorNameMap: Record<string, string>
-    todayClasses: TodayClass[]; todayStr: string
+    todayStr: string
 }
 
 // --- Helpers ---
@@ -46,7 +46,7 @@ function formatTime(t: string) {
 }
 
 // --- Main Component ---
-export function AdminSchedulingClient({ schedules, courses, mentors, courseNameMap, mentorNameMap, todayClasses, todayStr }: Props) {
+export function AdminSchedulingClient({ schedules, courses, mentors, courseNameMap, mentorNameMap, todayStr }: Props) {
     const [editData, setEditData] = useState<ScheduleEditData | null>(null)
     const [showForm, setShowForm] = useState(false)
 
@@ -81,8 +81,8 @@ export function AdminSchedulingClient({ schedules, courses, mentors, courseNameM
             {/* Scheduled Classes Table */}
             <ScheduleTable schedules={schedules} courseNameMap={courseNameMap} mentorNameMap={mentorNameMap} onEdit={handleEdit} />
 
-            {/* Today's Classes */}
-            <TodaysClassesSection classes={todayClasses} todayStr={todayStr} />
+            {/* Date-based Attendance */}
+            <DateAttendanceSection defaultDate={todayStr} />
         </div>
     )
 }
@@ -263,48 +263,153 @@ function DeleteBtn({ scheduleId }: { scheduleId: string }) {
     )
 }
 
-// --- Today's Classes ---
-function TodaysClassesSection({ classes, todayStr }: { classes: TodayClass[]; todayStr: string }) {
-    if (classes.length === 0) {
-        return <Card className="shadow-sm"><CardHeader><CardTitle>Today&apos;s Classes</CardTitle><p className="text-sm text-muted-foreground mt-1">No classes scheduled for today.</p></CardHeader></Card>
+// --- Date-Based Attendance Section ---
+function DateAttendanceSection({ defaultDate }: { defaultDate: string }) {
+    const [selectedDate, setSelectedDate] = useState(defaultDate)
+    const [classes, setClasses] = useState<ClassForDate[]>([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
+
+    const fetchForDate = useCallback(async (date: string) => {
+        setLoading(true)
+        setError('')
+        try {
+            const result = await getClassesForDate(date)
+            setClasses(result)
+        } catch {
+            setError('Failed to load classes for this date.')
+        } finally {
+            setLoading(false)
+        }
+    }, [])
+
+    useEffect(() => { fetchForDate(selectedDate) }, [selectedDate, fetchForDate])
+
+    const handleAttendanceMarked = (scheduleId: string, status: 'present' | 'absent') => {
+        setClasses(prev => prev.map(c => c.scheduleId === scheduleId ? { ...c, attendance: status } : c))
     }
+
+    const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    })
+    const isToday = selectedDate === defaultDate
+
     return (
         <Card className="shadow-sm">
             <CardHeader>
-                <CardTitle>Today&apos;s Classes</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">{classes.length} class{classes.length > 1 ? 'es' : ''} scheduled for today. Mark attendance below.</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <svg className="h-5 w-5" style={{ color: '#0a192f' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                            </svg>
+                            Mark Attendance
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            {formattedDate}{isToday ? <span className="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Today</span> : null}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <label className="text-sm font-medium text-slate-600 shrink-0">Select Date</label>
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={e => e.target.value && setSelectedDate(e.target.value)}
+                            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        {!isToday && (
+                            <button
+                                onClick={() => setSelectedDate(defaultDate)}
+                                className="text-xs text-indigo-600 hover:underline cursor-pointer whitespace-nowrap"
+                            >
+                                Back to Today
+                            </button>
+                        )}
+                    </div>
+                </div>
             </CardHeader>
-            <CardContent><div className="space-y-3">{classes.map(c => <TodayRow key={c.scheduleId} cls={c} todayStr={todayStr} />)}</div></CardContent>
+            <CardContent>
+                {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <div className="flex items-center gap-3 text-slate-400">
+                            <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                            </svg>
+                            <span className="text-sm">Loading classes...</span>
+                        </div>
+                    </div>
+                ) : error ? (
+                    <div className="rounded-md bg-red-50 border border-red-200 p-4 text-sm text-red-700 text-center">{error}</div>
+                ) : classes.length === 0 ? (
+                    <div className="text-center py-12">
+                        <svg className="mx-auto h-12 w-12 text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-sm text-muted-foreground">No classes scheduled for this date.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        <p className="text-sm text-slate-500 mb-4">{classes.length} class{classes.length > 1 ? 'es' : ''} scheduled — mark attendance below.</p>
+                        {classes.map(c => (
+                            <AttendanceRow
+                                key={c.scheduleId}
+                                cls={c}
+                                dateStr={selectedDate}
+                                onMarked={handleAttendanceMarked}
+                            />
+                        ))}
+                    </div>
+                )}
+            </CardContent>
         </Card>
     )
 }
 
-function TodayRow({ cls, todayStr }: { cls: TodayClass; todayStr: string }) {
+function AttendanceRow({ cls, dateStr, onMarked }: { cls: ClassForDate; dateStr: string; onMarked: (id: string, s: 'present' | 'absent') => void }) {
     const [p, t] = useTransition()
-    const status = cls.attendance || 'pending'
-    const mark = (s: 'present' | 'absent') => t(async () => { await markAdminAttendance(cls.scheduleId, todayStr, s) })
+    const [localStatus, setLocalStatus] = useState(cls.attendance)
+    const status = localStatus || 'pending'
+
+    const mark = (s: 'present' | 'absent') => {
+        setLocalStatus(s)     // optimistic update
+        onMarked(cls.scheduleId, s)
+        t(async () => { await markAdminAttendance(cls.scheduleId, dateStr, s) })
+    }
 
     return (
-        <div className="flex items-center justify-between rounded-lg border p-4 bg-white">
+        <div className="flex items-center justify-between rounded-lg border p-4 bg-white hover:bg-slate-50/50 transition-colors">
             <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: '#0a192f' }}>{cls.courseName.charAt(0)}</div>
+                <div className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: '#0a192f' }}>
+                    {cls.courseName.charAt(0)}
+                </div>
                 <div>
                     <p className="font-semibold text-slate-800">{cls.courseName}</p>
                     <p className="text-sm text-slate-500">Mentor: {cls.mentorName}</p>
                 </div>
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4 sm:gap-6">
                 <div className="text-right">
                     <p className="text-sm font-medium text-slate-700">{formatTime(cls.classTime)}</p>
                     <p className="text-xs text-slate-500">{cls.duration} min • ₹{cls.hourlyRate}/hr</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {status === 'present' ? <span className="px-3 py-1.5 rounded-full bg-green-100 text-green-800 text-sm font-medium">✓ Present</span>
-                        : status === 'absent' ? <span className="px-3 py-1.5 rounded-full bg-red-100 text-red-700 text-sm font-medium">✕ Absent</span>
-                            : <>
-                                <Button size="sm" disabled={p} onClick={() => mark('present')} className="bg-green-600 hover:bg-green-700 text-white cursor-pointer">{p ? '...' : 'Present'}</Button>
-                                <Button size="sm" variant="outline" disabled={p} onClick={() => mark('absent')} className="text-red-600 border-red-200 hover:bg-red-50 cursor-pointer">{p ? '...' : 'Absent'}</Button>
-                            </>}
+                    {status === 'present' ? (
+                        <>
+                            <span className="px-3 py-1.5 rounded-full bg-green-100 text-green-800 text-sm font-medium">✓ Present</span>
+                            <Button size="sm" variant="outline" disabled={p} onClick={() => mark('absent')} className="text-red-500 border-slate-200 hover:bg-red-50 cursor-pointer text-xs">{p ? '...' : 'Mark Absent'}</Button>
+                        </>
+                    ) : status === 'absent' ? (
+                        <>
+                            <span className="px-3 py-1.5 rounded-full bg-red-100 text-red-700 text-sm font-medium">✕ Absent</span>
+                            <Button size="sm" variant="outline" disabled={p} onClick={() => mark('present')} className="text-green-600 border-slate-200 hover:bg-green-50 cursor-pointer text-xs">{p ? '...' : 'Mark Present'}</Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button size="sm" disabled={p} onClick={() => mark('present')} className="bg-green-600 hover:bg-green-700 text-white cursor-pointer">{p ? '...' : 'Present'}</Button>
+                            <Button size="sm" variant="outline" disabled={p} onClick={() => mark('absent')} className="text-red-600 border-red-200 hover:bg-red-50 cursor-pointer">{p ? '...' : 'Absent'}</Button>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

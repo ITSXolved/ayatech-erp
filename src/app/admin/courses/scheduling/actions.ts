@@ -127,6 +127,62 @@ export async function updateAdminClassSchedule(scheduleId: string, formData: {
     revalidatePath('/admin/courses/scheduling')
 }
 
+export async function getClassesForDate(dateStr: string) {
+    await enforceAdminGuard()
+    const supabase = await createClient()
+
+    // Fetch all schedules active on this date
+    const { data: schedules, error } = await supabase
+        .from('class_schedules')
+        .select('id, course_id, mentor_id, class_time, duration_minutes, hourly_rate, excluded_dates')
+        .lte('start_date', dateStr)
+        .gte('end_date', dateStr)
+
+    if (error) throw new Error('Failed to fetch schedules')
+
+    const activeSchedules = (schedules || []).filter(s => {
+        const excluded = Array.isArray(s.excluded_dates) ? s.excluded_dates : []
+        return !excluded.includes(dateStr)
+    })
+
+    if (activeSchedules.length === 0) return []
+
+    const scheduleIds = activeSchedules.map(s => s.id)
+
+    // Fetch courses
+    const courseIds = [...new Set(activeSchedules.map(s => s.course_id))]
+    const { data: courses } = await supabase.from('courses').select('id, name').in('id', courseIds)
+    const courseMap = new Map((courses || []).map(c => [c.id, c.name]))
+
+    // Fetch mentors + their user names
+    const mentorIds = [...new Set(activeSchedules.map(s => s.mentor_id))]
+    const { data: mentors } = await supabase.from('mentors').select('id, user_id').in('id', mentorIds)
+    const mentorUserIds = (mentors || []).map(m => m.user_id).filter(Boolean)
+    const { data: mentorUsers } = mentorUserIds.length > 0
+        ? await supabase.from('users').select('id, full_name').in('id', mentorUserIds)
+        : { data: [] }
+    const userNameMap = new Map((mentorUsers || []).map(u => [u.id, u.full_name]))
+    const mentorNameMap = new Map((mentors || []).map(m => [m.id, userNameMap.get(m.user_id) || 'Unknown']))
+
+    // Fetch attendance for this date
+    const { data: attendance } = await supabase
+        .from('class_attendance')
+        .select('schedule_id, status')
+        .in('schedule_id', scheduleIds)
+        .eq('class_date', dateStr)
+    const attendanceMap = new Map((attendance || []).map(a => [a.schedule_id, a.status]))
+
+    return activeSchedules.map(s => ({
+        scheduleId: s.id,
+        courseName: courseMap.get(s.course_id) || 'Unknown',
+        mentorName: mentorNameMap.get(s.mentor_id) || 'Unknown',
+        classTime: s.class_time as string,
+        duration: s.duration_minutes as number,
+        hourlyRate: (s.hourly_rate as number) || 0,
+        attendance: (attendanceMap.get(s.id) as 'pending' | 'present' | 'absent') || null,
+    }))
+}
+
 export async function markAdminAttendance(scheduleId: string, classDate: string, status: 'present' | 'absent') {
     await enforceAdminGuard()
     const supabase = await createClient()
